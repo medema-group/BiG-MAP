@@ -1,1 +1,126 @@
-metAE
+* metAE is currently in development!
+* Short description
+For the analysis of bacterial metagenomic and metatranscriptomic
+samples more and more tools become available. This tool is focussed on
+finding the representation of primary metabolic pathways and their
+related homologs in metagenomic and metatranscriptomic samples. These
+pathways are readily obtained from (draft) bacterial genomes using
+antiSMASH or gutSMASH. To be able to process the outputs from these
+tools into proper abundance and expressions values, the following
+programs form the essential part of metaclust:
+- metaclust.download.py
+- metaclust.genecluster.py
+- metaclust.map.py
+- metaclust.analyse.py
+For information on how to implement this program, scroll down to
+*Overview and quickstart*. 
+* Requirements (Docker image)
+** Software:
+- Python 3+
+- R statistics
+- fastq-dump
+- fastANI
+- HMMer
+- Bowtie2
+- Samtools
+- Bedtools
+- biom
+
+** Packages:
+- BioPython
+- pandas
+- metagenomeSeq
+* Overview and quickstart
+** Installation
+Pull the git repository to a local folder and run the Docker
+image. This image will install all the (above mentioned) required
+software and packages for metaclust to run properly. For example:
+#+BEGIN_EXAMPLE
+~$ docker create metaclust.dkr
+~$ docker run metaclust.dkr
+#+END_EXAMPLE
+** metaclust.download.py
+This script is created to easily download the metagenomic and/or
+metatranscriptomic samples from the online NCBI repository. First, the
+samples are downloaded in /.SRA/ format, and then they are converted
+into /.fastq/ pairs using /fastq-dump/. The typical workflow for
+downloading samples for the online NCBI repository is the following:
+#+BEGIN_EXAMPLE
+~$ python3 metacluster.download.py -n <dataset number from table> -o <output directory> -a <accession list file>
+#+END_EXAMPLE
+- *-n, --datanumber*: Input the WGS data, as mentioned in the table
+  with data recommendations (see
+  https://github.com/KoenvdBerg/MSc_thesis). Input number here.
+- *-o, --outdir*: Put path to the folder where the downloaded files
+  should be located here. Default = current folder (.)
+- *-a, --acclist*: In the case of not using a recommended dataset, but
+  your own, specify the SRA accession list file here, as obtainable
+  through https://www.ncbi.nlm.nih.gov/Traces/study/?go=home, and
+  then clicking _Accession list_
+
+The recommended download data are the following (number corresponds to
+*-n, --datanumber* option):
+| nr | Source                                     | Explanation                                                                                                                                                             | Environment             | Accesssion   |
+|----+--------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------+--------------|
+|  0 | Choose your own data                       |                                                                                                                                                                         |                         |              |
+|  1 | Schirmer et al.                            | contains 78 high-quality paired metagenomes and metatranscriptomes                                                                                                      | Gut microbiome          | PRJNA389280  |
+|  2 | Franzosa et al.                            | 8 samples (in triplicate) of metagenomic and metatranscriptomic data                                                                                                    | Gut and oral microbiome | PRJNA188481  |
+|  3 | Greenblum, Turnbaugh & Borenstein36        | Illumina-derived shotgun metagenomic data from 124 unrelated Danish and Spanish persons labelled with BMI and IBD data                                                  | Gut microbiome          | ERA000116    |
+|  4 | Abu-Ali et al.                             | It reports a large-scale investigation of 372 human faecal metatranscriptomes and 929 metagenomes from a subset of 308 men in the Health Professionals Follow-Up Study. | Gut microbiome          | PRJNA354235  |
+|  5 | University Medical Centre Groningen (UMCG) | Metagenomic data of 45 IBD and 20 non-IBD Dutch participants. Could be useful for validation of our results.                                                            | Gut microbiome          | upon request |
+
+** metaclust.genecluster.py
+For obtaining the correct metabolic gene cluster sequences, either
+antiSMASH or gutSMASH should be run in advance on interesting
+reference genomes. This module will consequently take those results
+and convert them into a redundancy filtered reference fasta
+file. fastANI is used to find gene clusters that are too similar in
+function, and these are then filtered out based on a similarity
+cut-off of 0.9. The similarity is calculated for the protein sequences
+only, since these sequences are more relevant for the end-function of
+the gene cluster and are expected to be more similar. In addition,
+housekeeping genes are included to be able to compare the results to
+expression and abundance levels that are known /a priori/. A typical
+workflow looks like this:
+#+BEGIN_EXAMPLE
+~$ python3 metAE.genecluster.py -d <path to anti/gutSMASH output> -o <outdir> -p <path to fastANI>
+#+END_EXAMPLE
+*Options*
+- *-d, --indir*: Specify the path to the directory containing the gut-
+  or antiSMASH outputs here. This could be a singular directory, or a
+  space seperated list of directories.
+- *-o, --outdir*: Put path to the folder where the downloaded files
+  should be located here. The folder should be an existing
+  folder. Default = current folder\ (.)
+- *-p, --fastani*: Specify the full path to the fastANI program
+  location here. default = /bin/fastANI. Installation guidelines are
+  found on Github: https://github.com/ParBLiSS/FastANI
+
+** metaclust.map.py
+This module is designed to map the metagenomic and/or
+metatranscriptomic samples to the reference that is created using
+module 2. It does this using /bowtie2/. The following will be
+computed: TPM, RPKM, coverage, core coverage. The coverage is
+calculated using /Bedtools/, and the read count values using
+/Samtools/. The following options are included:
+
+#+BEGIN_EXAMPLE
+python3 metAE.map.py -r <path to reference> -i1 <mate 1s> -i2 <mate 2s> -o <path to outdir> 
+#+END_EXAMPLE
+#+BEGIN_EXAMPLE
+python3 metaclust.map.py -r /mnt/scratch/berg266/results/antiSMASH_results/metaclust.GCFs_DNA_reference.fna -i1 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_1.fastq -i2 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_2.fastq -o /mnt/scratch/berg266/results/antiSMASH_results/
+#+END_EXAMPLE
+
+- *-r, --reference*: Provide the reference metabolic gene clusters
+  here. Format: /.fasta/, /.fna/, /.fa/
+- *-i1, --fastq1*: Provide the mate 1s of the paired metagenomic
+  and/or metatranscriptomic samples here. These samples should be
+  provided in fastq-format (.fastq, .fq, .fq.gz). Also, this can be a
+  comma seperated list from the command line"
+- *-i2, --fastq2*: Provide the mate 2s of the paired metagenomic
+  and/or metatranscriptomic samples here. These samples should be
+  provided in fastq-format (.fastq, .fq, .fq.gz). Also, this can be a
+  comma seperated list from the command line"
+- *-o, --outdir*: Put path to the folder where the downloaded files
+  should be located here. The folder should be an existing
+  folder. Default = current folder\ (.)
