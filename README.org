@@ -14,7 +14,7 @@ programs form the essential part of metAE:
 - metAE.analyse.py
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
-* Requirements (Docker image)
+* Requirements
 ** Software:
 - Python 3+
 - R statistics
@@ -31,14 +31,6 @@ For information on how to implement this program, scroll down to
 - pandas
 - metagenomeSeq
 * Overview and quickstart
-** Installation
-Pull the git repository to a local folder and run the Docker
-image. This image will install all the (above mentioned) required
-software and packages for metAE to run properly. For example:
-#+BEGIN_EXAMPLE
-~$ docker create metAE.dkr
-~$ docker run metAE.dkr
-#+END_EXAMPLE
 ** metAE.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
