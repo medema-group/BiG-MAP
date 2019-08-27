@@ -32,32 +32,27 @@ def get_arguments():
     """Parsing the arguments"""
     parser = argparse.ArgumentParser(description="This script maps\
     the\ fastq files to the reference GCFs. It works as follows: ...",
-    usage="metacluster.map.py [Options] -i1 [mate-1s] -i2 [mate-2s] -R\
+    usage="metaclust.map.py [Options] -I1 [mate-1s] -I2 [mate-2s] -R\
  [reference] -O [outdir]")
     parser.add_argument("-R", "--reference", help="Provide the\
     reference fasta file. format = .fasta or .fa", required=True)
     parser.add_argument("-O", "--outdir", help="Put the path to the\
     output folder for the results here. The folder should be an\
     existing folder. Default = current folder (.)", required=True)
-    parser.add_argument("-i1","--fastq1", nargs='+',help="Provide the\
+    parser.add_argument("-I1","--fastq1", nargs='+',help="Provide the\
     mate 1s of the paired metagenomic and/or metatranscriptomic\
     samples here. These samples should be provided in fastq-format\
     (.fastq, .fq, .fq.gz). Also, this can be a comma seperated list\
     from the command line", required=True)
-    parser.add_argument("-i2","--fastq2",nargs='+',help="Provide the\
+    parser.add_argument("-I2","--fastq2",nargs='+',help="Provide the\
     mate 2s of the paired metagenomic and/or metatranscriptomic\
     samples here. These samples should be provided in fastq-format\
     (.fastq, .fq, .fq.gz). Also, this can be a comma seperated list\
     from the command line", required = True)
     parser.add_argument( "-cc", "--corecalculation", help="Also\
     calculate the TPM, RPKM and coverage values for the core of the\
-    cluster present in the bedfile. Specify the bedfile\
-    here. !Attention: the 'metaclust.GCFs_coreDNA_reference.fna'\
-    should also be present in the exact same folder as the normal\
-    reference file", required = False)
-    parser.add_argument( "-ct", "--coverage_treshold", help="Output\
-    data with a coverage higher than coverage_threshold. Default =\
-    0.4", default=0.4, type=float, required = False)
+    cluster present in the bedfile. Specify the bedfile here.",
+    required = False)
     parser.add_argument( "-b", "--biom_output", help=f"Outputs the\
     resulting read counts in biom format (v1.0) as well. This will be\
     useful to analyze the results in other programs as well, most\
@@ -66,7 +61,15 @@ def get_arguments():
     data should be in the same format as the example metadata",
     type=str, required = False)
 
+
+    """
+    parser.add_argument( "-ct", "--coverage_treshold", help="Output\
+    data with a coverage higher than coverage_threshold. Default =\
+    0.4", default=0.4, type=float, required = False)
+    """
+
     # Has become obsolete since I will be using Docker for publishing
+    """
     parser.add_argument( "-p1", "--bowtie2", help="Specify the full\
     path to the Bowtie2 program location here. default =\
     /bin/bowtie2. In the case that the program is not installed,\
@@ -87,6 +90,7 @@ def get_arguments():
     https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.5.1/. Then\
     unzip the package and use the path to that folder here.", required
     = False)
+    """
 
 
     return(parser.parse_args())
@@ -94,12 +98,10 @@ def get_arguments():
 ######################################################################
 # Functions for mapping the reads against GCFs and % aligned
 ######################################################################
-def bowtie2_index(bowtie2path, reference, outdir):
+def bowtie2_index(reference, outdir):
     """indexes the fasta reference file
     parameters
     ----------
-    bowtie2path
-        string, the path to the bowtie2 program
     reference
         string, the name of the reference fasta file (GCFs)
     outdir
@@ -112,22 +114,17 @@ def bowtie2_index(bowtie2path, reference, outdir):
         stem = Path(reference).stem
         index_name = f"{outdir}{stem}"
         if not os.path.exists(index_name + ".1.bt2"):
-            if bowtie2path:
-                cmd_bowtie2_index = f"{bowtie2path}/bowtie2-build {reference} {index_name}"
-            else:
-                cmd_bowtie2_index = f"bowtie2-build {reference} {index_name}"
+            cmd_bowtie2_index = f"bowtie2-build {reference} {index_name}"
             res_index = subprocess.check_output(cmd_bowtie2_index, shell=True)
     except(subprocess.CalledProcessError):
         print("Error-code M3:001, check error table")
         # Proper error here, also exit code
     return(index_name)
 
-def bowtie2_map(bowtie2path, outdir, mate1, mate2, index):
+def bowtie2_map(outdir, mate1, mate2, index):
     """Maps the .fq file to the reference (fasta)
     parameters
     ----------
-    bowtie2path
-        string, the path to the bowtie2 program
     outdir
         string, the path of the output directory
     mate1
@@ -145,7 +142,7 @@ def bowtie2_map(bowtie2path, outdir, mate1, mate2, index):
     
     try:
         if not os.path.exists(samfile):
-            cmd_bowtie2_map = f"{bowtie2path if bowtie2path else ''}bowtie2\
+            cmd_bowtie2_map = f"bowtie2\
             --sensitive\
             --no-unal\
             --threads 6 \
@@ -190,12 +187,10 @@ def parse_perc(outdir):
 ######################################################################
 # Functions for reading SAM and BAM files
 ######################################################################
-def samtobam(samtoolspath, sam, outdir):
+def samtobam(sam, outdir):
     """converts .sam to .bam using samtools view
     parameters:
     ----------
-    samtoolspath
-        string, path to the samtools installation directory
     sam 
         string, name of the outputted bowtie2 mapping
     outdir
@@ -207,7 +202,7 @@ def samtobam(samtoolspath, sam, outdir):
     stem = Path(sam).stem
     bamfile = f"{outdir}{stem}.bam"
     try:
-        cmd_samtobam = f"{samtoolspath if samtoolspath else ''}samtools view\
+        cmd_samtobam = f"samtools view\
         -b {sam}\
         > {bamfile}"
         res_samtobam = subprocess.check_output(cmd_samtobam, shell=True)
@@ -215,12 +210,10 @@ def samtobam(samtoolspath, sam, outdir):
         pass # raise error here
     return(bamfile)
 
-def sortbam(samtoolspath, bam, outdir):
+def sortbam(bam, outdir):
     """sorts the bam file
     parameters
     ----------
-    samtoolspath
-        string, path to the samtools installation directory
     bam
         string, the name of the accession bamfile, ".bam"-file
     outdir
@@ -232,18 +225,16 @@ def sortbam(samtoolspath, bam, outdir):
     stem = Path(bam).stem
     sortedbam = f"{outdir}{stem}.sorted.bam"
     try:
-        cmd_sortbam = f"{samtoolspath if samtoolspath else ''}samtools sort {bam} > {sortedbam}"
+        cmd_sortbam = f"samtools sort {bam} > {sortedbam}"
         res_sortbam = subprocess.check_output(cmd_sortbam, shell=True)
     except(subprocess.CalledProcessError):
         pass # raise error here
     return(sortedbam)
 
-def indexbam(samtoolspath, sortedbam, outdir):
+def indexbam(sortedbam, outdir):
     """Builds a bam index
     parameters
     ----------
-    samtoolspath
-        string, path to the samtools installation directory
     sortedbam
         string, the name of the sorted bam file
     outdir
@@ -253,18 +244,16 @@ def indexbam(samtoolspath, sortedbam, outdir):
     none
     """
     try:
-        cmd_bam_index = f"{samtoolspath if samtoolspath else ''}samtools index {sortedbam}"
+        cmd_bam_index = f"samtools index {sortedbam}"
         res_index = subprocess.check_output(cmd_bam_index, shell=True)
     except(subprocess.CalledProcessError):
         pass # raise error here
     return()
 
-def countbam(samtoolspath, sortedbam, outdir):
+def countbam(sortedbam, outdir):
     """calculates the raw counts from a BAM index
     parameters
     ----------
-    samtoolspath
-        string, path to the samtools installation directory
     sortedbam
         string, the name of the sorted bam file
     outdir
@@ -275,18 +264,16 @@ def countbam(samtoolspath, sortedbam, outdir):
     """
     counts_file = f"{sortedbam[:-3]}count"
     try:
-        cmd_count = f"{samtoolspath if samtoolspath else ''}samtools idxstats {sortedbam} > {counts_file}"
+        cmd_count = f"samtools idxstats {sortedbam} > {counts_file}"
         res_count = subprocess.check_output(cmd_count, shell=True)
     except(subprocess.CalledProcessError):
         pass # raise error here
     return(counts_file)
 
-def extractcorefrombam(samtoolspath, bam, outdir, bedfile):
+def extractcorefrombam(bam, outdir, bedfile):
     """extracts regions in bedfile format from bam file
     parameters:
     ----------
-    samtoolspath
-        string, path to the samtools installation directory
     bam 
         string, the name of the accession bamfile, ".bam"-file
     outdir
@@ -302,7 +289,7 @@ def extractcorefrombam(samtoolspath, bam, outdir, bedfile):
     bamfile = f"{outdir}core_{bamstem}.bam"
     if os.path.exists(bedfile):
         try:
-            cmd_extractcore = f"{samtoolspath if samtoolspath else ''}samtools view\
+            cmd_extractcore = f"samtools view\
             -b {bam}\
             -L {bedfile}\
             > {bamfile}"
@@ -438,7 +425,7 @@ def preparebedtools(outdir, reference):
 
     return(genome_file)
     
-def bedtoolscoverage(bedtoolspath, gfile, outdir, sortedbam):
+def bedtoolscoverage(gfile, outdir, sortedbam):
     """computes the coverage for each mapped region
     parameters
     ----------
@@ -458,7 +445,7 @@ def bedtoolscoverage(bedtoolspath, gfile, outdir, sortedbam):
     bg_file = f"{outdir}{stem.split('.')[0]}.bg"
     
     try:
-        cmd_bedtools = f"{bedtoolspath if bedtoolspath else ''}bedtools genomecov -bga -ibam {sortedbam} -g {gfile} > {bg_file}"
+        cmd_bedtools = f"bedtools genomecov -bga -ibam {sortedbam} -g {gfile} > {bg_file}"
         res_bedtools = subprocess.check_output(cmd_bedtools, shell=True)
     except(subprocess.CalledProcessError):
         pass # raise error here
@@ -610,11 +597,14 @@ def export2biom(outdir, core = ""):
     res_export = subprocess.check_output(cmd_export2biom, shell=True)
     return(biom_file)
 
-def decoratebiom(biom_file, outdir, metadata):
+def decoratebiom(biom_file, outdir, metadata, core = ""):
     """inserts rows and column data
     """
-    cmd_addmetadata = f"biom add-metadata -i {biom_file} -o {biom_file} -m {metadata}"
-    res_add = subprocess.check_output(cmd_addmetadata, shell=True)
+    cmd_sample = f"biom add-metadata -i {biom_file} -o {biom_file} -m {metadata}"
+    res_add = subprocess.check_output(cmd_sample, shell=True)
+    if core == "core":
+        cmd_feature = f"biom add-metadata --observation-metadata-fp {outdir}metaclust.map.core.coverage.txt -i {biom_file} -o {biom_file}"
+        res_feature = subprocess.check_output(cmd_feature, shell=True)
     with open(biom_file, "r") as f:
         biom_dict = json.load(f)
     with open(biom_file, "w") as w:
@@ -686,17 +676,17 @@ def main():
     ##############################
     # Preparing mapping
     ##############################
-    i = bowtie2_index(args.bowtie2, args.reference, args.outdir)
+    i = bowtie2_index( args.reference, args.outdir)
 
     ##############################
     # Whole cluster calculation
     ##############################
     for m1, m2 in zip(args.fastq1, args.fastq2):
-        s = bowtie2_map(args.bowtie2, args.outdir, m1, m2, i)
-        b = samtobam(args.samtools, s, args.outdir)
-        sortb = sortbam(args.samtools, b, args.outdir)
-        indexbam(args.samtools, sortb, args.outdir)
-        countsfile = countbam(args.samtools, sortb, args.outdir)
+        s = bowtie2_map( args.outdir, m1, m2, i)
+        b = samtobam( s, args.outdir)
+        sortb = sortbam( b, args.outdir)
+        indexbam( sortb, args.outdir)
+        countsfile = countbam( sortb, args.outdir)
         TPM =  calculateTPM(countsfile)
         RPKM = calculateRPKM(countsfile)
 
@@ -704,7 +694,7 @@ def main():
         # bedtools: coverage
         ##############################
         bedtools_gfile = preparebedtools(args.outdir, args.reference)
-        bedgraph = bedtoolscoverage(args.bedtools, bedtools_gfile, args.outdir, sortb)
+        bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
         coverage = computetotalcoverage(bedgraph)
 
         ##############################
@@ -720,13 +710,13 @@ def main():
         # Core calculation
         ##############################
         if args.corecalculation:
-            sortb = extractcorefrombam(args.samtools, sortb, args.outdir, args.corecalculation)
-            indexbam(args.samtools, sortb, args.outdir)
-            countsfile = countbam(args.samtools, sortb, args.outdir)
+            sortb = extractcorefrombam( sortb, args.outdir, args.corecalculation)
+            indexbam( sortb, args.outdir)
+            countsfile = countbam( sortb, args.outdir)
             core_TPM =  calculateTPM(countsfile)
             core_RPKM = calculateRPKM(countsfile)
             # Coverage
-            core_bedgraph = bedtoolscoverage(args.bedtools, bedtools_gfile, args.outdir, sortb)
+            core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
             core_coverage = computecorecoverage(core_bedgraph, args.corecalculation)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_TPM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_TPM.keys()]
@@ -739,31 +729,32 @@ def main():
     df = pd.DataFrame(results)
     df.set_index("gene_clusters", inplace=True)
     df.to_csv(f"{args.outdir}metaclust.map.results.ALL.csv")
-    df = df.loc[(df != 0).any(1)]
+    #df = df.loc[(df != 0).any(1)]
     #coverage_treshold = df[f"{sample}.cov"] > args.coverage_treshold
     #df = df[coverage_treshold]
-    df.to_csv(f"{args.outdir}metaclust.map.results.ALL_filtered.csv")
+    #df.to_csv(f"{args.outdir}metaclust.map.results.ALL_filtered.csv")
     
-    # writing RPKM (core) filetered results
+    # writing RPKM (core) filtered results
     headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
     df_RPKM = df[headers_RPKM]
     df_RPKM.columns = [h[:-5] for h in headers_RPKM]
     df_RPKM.to_csv(f"{args.outdir}metaclust.map.results.RPKM_filtered.csv")
     df_RPKM.to_csv(f"{args.outdir}metaclust.map.results.RPKM_filtered.txt", sep="\t")
+
     headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
     df_coreRPKM = df[headers_coreRPKM]
     df_coreRPKM.columns = [h[:-9] for h in headers_coreRPKM]
     df_coreRPKM.to_csv(f"{args.outdir}metaclust.map.results.coreRPKM_filtered.csv")
     df_coreRPKM.to_csv(f"{args.outdir}metaclust.map.results.coreRPKM_filtered.txt", sep="\t")
 
-    # writing the results to biom format:
-    if args.biom_output:
-        try:
-            biomfile = export2biom(args.outdir)
-            biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)
-            if args.corecalculation:
-                biomfile = export2biom(args.outdir, "core")
-                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)
+    # Writing row coverages:
+    headers_cov = [corekey for corekey in results.keys() if ".corecov" in corekey]
+    df_cov = df[headers_cov]
+    df_cov.columns = [h[:-8] for h in headers_cov if ".corecov" in h]
+    df_cov.index.names = ['#gene_clusters']
+    df_cov.to_csv(f"{args.outdir}metaclust.map.core.coverage.txt", sep="\t")
+    
+                    biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)
         except(EOFError):
             biomfile = export2biom(args.outdir)
     
@@ -771,7 +762,6 @@ def main():
     mapping_percentages = parse_perc(args.outdir)
     df_perc = pd.DataFrame(mapping_percentages)
     df_perc.to_csv(f"{args.outdir}metaclust.percentages.csv")
-
 
     ##############################
     # Moving and purging files
@@ -783,9 +773,9 @@ def main():
     movetodir(args.outdir, "bowtie2-map-results", ".sam")
     movetodir(args.outdir, "bowtie2-map-results", ".bai")
     movetodir(args.outdir, "bowtie2-raw-counts", ".count")
-    movetodir(args.outdir, "map-results", ".csv")
-    movetodir(args.outdir, "map-results", ".txt")
-    movetodir(args.outdir, "map-results", ".biom")
+    movetodir(args.outdir, "csv-results", ".csv")
+    movetodir(args.outdir, "csv-results", ".txt")
+    movetodir(args.outdir, "biom-results", ".biom")
     
 if __name__ == "__main__":
     main()

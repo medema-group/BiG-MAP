@@ -89,7 +89,8 @@ def get_arguments():
     the core.", default=0, required=False, type=int)
     parser.add_argument( "-p", "--fastani", help="Specify the full\
     path to the fastANI program location here. default =\
-    /bin/fastANI. Installation guidelines are found on Github:\
+    /bin/fastANI. example: /mnt/scratch/programs/ Installation\
+    guidelines are found on Github:\
     https://github.com/ParBLiSS/FastANI", required = True)
     return(parser.parse_args())
 
@@ -190,12 +191,12 @@ def parsegbkcluster(infile, nflank):
         
         # Parsing the DNA sequence
         DNA = record.seq
-        for loc in core_locations:
-            core_DNA += loc.extract(DNA)
+        #for loc in core_locations:
+        #    core_DNA += loc.extract(DNA)
         organism = record.annotations['organism'].replace(" ", "_")
         organism = organism.replace("(", "")
         organism = organism.replace(")","")
-    return(DNA, "".join(proteins), ":".join(GCs), organism, core_locations, core_DNA)
+    return(DNA, "".join(proteins), ":".join(GCs), organism, core_locations) # core_DNA)
 
 def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     """Writes the fasta file for each sequence
@@ -222,7 +223,7 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     regionno = infile.split("/")[-1].split(".")[-2]
     orgID =  infile.split("/")[-1].split(".")[0]
     orgID = orgID if 'PROT' not in orgID else orgID[5:]
-    Outfile = f"{outdir}{seqstype}-{orgID}.{organism}.{regionno}.fasta"
+    Outfile = f"{outdir}{cluster if seqstype=='HousekeepingGene' else seqstype}-{orgID}.{organism}.{regionno}.fasta"
     fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i+80] for i in range(0,len(str(sequences)),80))
     if not os.path.exists(Outfile):
@@ -296,7 +297,7 @@ def computesimilarity(outdir, pathtofastANI):
     ----------
     """
     try:
-        cmd_fastani = "{} --ql {}fastani.query.txt --rl {}fastani.reference.txt --fragLen 30 --minFrag 1 -k 16 -t 4 -o {}fastani.results".format(pathtofastANI, outdir, outdir,outdir)
+        cmd_fastani = "{}fastANI --ql {}fastani.query.txt --rl {}fastani.reference.txt --fragLen 30 --minFrag 1 -k 16 -t 4 -o {}fastani.results".format(pathtofastANI, outdir, outdir,outdir)
         res_download = subprocess.check_output(cmd_fastani, shell=True)
     except(subprocess.CalledProcessError):
         # Raise error here for error table
@@ -586,14 +587,15 @@ def main():
     for d in args.indir:
         for f in retrieveclusterfiles(d):
             # Parsing each .gbk file
-            DNAseq, AAseq, GC, organism, core_locs, core_DNA = parsegbkcluster(f, args.flank_genes)
-
+            DNAseq, AAseq, GC, organism, core_locs = parsegbkcluster(f, args.flank_genes)
             # writing the full gene clusters to .fasta for fastANI
             prot_file, orgID, fasta_header = writefasta(AAseq, "PROT", GC, organism, f, args.outdir)
             dna_file, orgID, fasta_header_DNA = writefasta(DNAseq, "DNA", GC, organism, f, args.outdir)
             prot_fasta_files.append(prot_file)
+
             # writing the core gene clusters to .fasta format
-            cora_file, orgID, fasta_header_core = writefasta(core_DNA, "core_DNA", GC, organism, f, args.outdir)
+            #cora_file, orgID, fasta_header_core = writefasta(core_DNA, "core_DNA", GC, organism, f, args.outdir)
+            
             # remembering the whole genome gbk files
             genomegbk = getgenomegbk(f)
             genomedict[orgID] = genomegbk
@@ -612,7 +614,7 @@ def main():
     ##############################
     GCFs = makeGCF(0.9, args.outdir)
     GCFs_fasta = writeGCFfasta(GCFs, args.outdir, "metaclust.GCFs_DNA_reference.fna")
-    GCFs_core_fasta = writeGCFfasta(GCFs, args.outdir, "metaclust.GCFs_coreDNA_reference.fna", "core_DNA")
+    #GCFs_core_fasta = writeGCFfasta(GCFs, args.outdir, "metaclust.GCFs_coreDNA_reference.fna", "core_DNA")
     writejson(GCFs, args.outdir, "fastani.GCFs")
 
     ##############################
@@ -630,14 +632,14 @@ def main():
             genelocs = parsehmmoutput(hmmresult)
             for gene, loc in genelocs.items():
                 seq = getgenefromgbk(genomedict[orgID], loc)
-                f, ID, housekeepingheader = writefasta(seq, gene, gene, organism, fname, args.outdir)
+                f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir)
                 append_fasta(GCFs_fasta, f)
                 GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
         processed.append(organism)
 
     # Remembering the enzymatic gene locations
     bedfile = locs2bedfile(GC_enzyme_locs, args.outdir) 
-    
+
     ##############################
     # Cleaning output dir (10)
     ##############################    
