@@ -1,4 +1,4 @@
-* metAE is currently in development!
+* metaclust is currently in development!
 * Short description
 For the analysis of bacterial metagenomic and metatranscriptomic
 samples more and more tools become available. This tool is focussed on
@@ -7,11 +7,11 @@ related homologs in metagenomic and metatranscriptomic samples. These
 pathways are readily obtained from (draft) bacterial genomes using
 antiSMASH or gutSMASH. To be able to process the outputs from these
 tools into proper abundance and expressions values, the following
-programs form the essential part of metAE:
-- metAE.download.py
-- metAE.genecluster.py
-- metAE.map.py
-- metAE.analyse.py
+programs form the essential part of metaclust:
+- metaclust.download.py
+- metaclust.genecluster.py
+- metaclust.map.py
+- metaclust.analyse.py
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
 * Requirements
@@ -31,14 +31,14 @@ For information on how to implement this program, scroll down to
 - pandas
 - metagenomeSeq
 * Overview and quickstart
-** metAE.download.py
+** metaclust.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
 into /.fastq/ pairs using /fastq-dump/. The typical workflow for
 downloading samples for the online NCBI repository is the following:
 #+BEGIN_EXAMPLE
-~$ python3 metAEer.download.py -n <dataset number from table> -o <output directory> -a <accession list file>
+~$ python3 metacluster.download.py -n <dataset number from table> -o <output directory> -a <accession list file>
 #+END_EXAMPLE
 - *-n, --datanumber*: Input the WGS data, as mentioned in the table
   with data recommendations (see
@@ -61,7 +61,7 @@ The recommended download data are the following (number corresponds to
 |  4 | Abu-Ali et al.                             | It reports a large-scale investigation of 372 human faecal metatranscriptomes and 929 metagenomes from a subset of 308 men in the Health Professionals Follow-Up Study. | Gut microbiome          | PRJNA354235  |
 |  5 | University Medical Centre Groningen (UMCG) | Metagenomic data of 45 IBD and 20 non-IBD Dutch participants. Could be useful for validation of our results.                                                            | Gut microbiome          | upon request |
 
-** metAE.genecluster.py
+** metaclust.genecluster.py
 For obtaining the correct metabolic gene cluster sequences, either
 antiSMASH or gutSMASH should be run in advance on interesting
 reference genomes. This module will consequently take those results
@@ -75,7 +75,7 @@ housekeeping genes are included to be able to compare the results to
 expression and abundance levels that are known /a priori/. A typical
 workflow looks like this:
 #+BEGIN_EXAMPLE
-~$ python3 metAE.genecluster.py -d <path to anti/gutSMASH output> -o <outdir> -p <path to fastANI>
+~$ python3 metaclust.genecluster.py -d <path to anti/gutSMASH output> -o <outdir> -p <path to fastANI>
 #+END_EXAMPLE
 *Options*
 - *-d, --indir*: Specify the path to the directory containing the gut-
@@ -88,7 +88,7 @@ workflow looks like this:
   location here. default = /bin/fastANI. Installation guidelines are
   found on Github: https://github.com/ParBLiSS/FastANI
 
-** metAE.map.py
+** metaclust.map.py
 This module is designed to map the metagenomic and/or
 metatranscriptomic samples to the reference that is created using
 module 2. It does this using /bowtie2/. The following will be
@@ -97,10 +97,10 @@ calculated using /Bedtools/, and the read count values using
 /Samtools/. The following options are included:
 
 #+BEGIN_EXAMPLE
-python3 metAE.map.py -r <path to reference> -i1 <mate 1s> -i2 <mate 2s> -o <path to outdir> 
+python3 metaclust.map.py -r <path to reference> -i1 <mate 1s> -i2 <mate 2s> -o <path to outdir> 
 #+END_EXAMPLE
 #+BEGIN_EXAMPLE
-python3 metAE.map.py -r /mnt/scratch/berg266/results/antiSMASH_results/metAE.GCFs_DNA_reference.fna -i1 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_1.fastq -i2 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_2.fastq -o /mnt/scratch/berg266/results/antiSMASH_results/
+python3 metaclust.map.py -r /mnt/scratch/berg266/results/antiSMASH_results/metaclust.GCFs_DNA_reference.fna -i1 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_1.fastq -i2 /mnt/scratch/berg266/data/fastq_data/testfiles/SRR5947807_pass_2.fastq -o /mnt/scratch/berg266/results/antiSMASH_results/
 #+END_EXAMPLE
 
 - *-r, --reference*: Provide the reference metabolic gene clusters
