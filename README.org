@@ -39,6 +39,31 @@ into /.fastq/ pairs using /fastq-dump/. The typical workflow for
 downloading samples for the online NCBI repository is the following:
 #+BEGIN_EXAMPLE
 ~$ python3 metacluster.download.py -n <dataset number from table> -o <output directory> -a <accession list file>
+usage:
+python3 metaclust.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
+
+Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
+
+Obligatory arguments:
+    -A    Put the filepath to the accession list file here. This file
+          should consist of one accession on each line only.
+    -O    Put path to the output folder where the results should be
+          deposited. Default = current folder (.)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -n DATANUMBER, --datanumber DATANUMBER
+                        Input the WGS data, as mentioned in the table with
+                        data recommendations (see
+                        https://github.com/KoenvdBerg/MSc_thesis). Input
+                        number here.
+  -p FASTQDUMP, --fastqdump FASTQDUMP
+                        Specify the full path to the fastq-dump program
+                        location here. default = /bin/fastq-dump. In the case
+                        that the program is not installed, download the binary
+                        from: https://ncbi.github.io/sra-tools/fastq-
+                        dump.html. Then unzip the package and use the path to
+                        that folder here.
 #+END_EXAMPLE
 - *-n, --datanumber*: Input the WGS data, as mentioned in the table
   with data recommendations (see
