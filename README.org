@@ -14,29 +14,14 @@ programs form the essential part of metAEP:
 - metAEP.analyse.py
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
-* Requirements
-** Software:
-- Python 3+
-- R statistics
-- fastq-dump
-- fastANI
-- HMMer
-- Bowtie2
-- Samtools
-- Bedtools
-- biom
+* Installation
+Install metAEP using conda. Conda can be installed from [[https://docs.conda.io/en/latest/miniconda.html][miniconda]]. 
+#+BEGIN_EXAMPLE
+~$ conda env create -f metAEP.yml metAEP
+~$ conda activate metAEP
+#+END_EXAMPLE
+After this all the dependencies are installed and metAEP is ready to go. 
 
-** Packages:
-*** Python
-- BioPython
-- pandas
-*** R
-- metagenomeSeq
-- biomformat
-- ComplexHeatmap=2.0.0
-- viridisLite
-- RColorBrewer
-- tidyverse
 * Overview and quickstart
 ** metAEP.download.py
 This script is created to easily download the metagenomic and/or
@@ -187,3 +172,26 @@ Obligatory arguments:
 optional arguments:
   -h, --help  show this help message and exit
 #+END_EXAMPLE
+* Requirements
+** Software:
+- Python 3+
+- R statistics
+- fastq-dump
+- fastANI
+- HMMer
+- Bowtie2
+- Samtools
+- Bedtools
+- biom
+
+** Packages:
+*** Python
+- BioPython
+- pandas
+*** R
+- metagenomeSeq
+- biomformat
+- ComplexHeatmap=2.0.0
+- viridisLite
+- RColorBrewer
+- tidyverse
