@@ -1,6 +1,5 @@
-* metAEP is currently in development!
-* Short description
-the metagenomic/metatranscriptomic Abundance and Expression Pipeline
+* The metagenomic/metatranscriptomic Abundance and Expression Pipeline (metAEP)
+The metagenomic/metatranscriptomic Abundance and Expression Pipeline
 is currently in development. For the analysis of bacterial metagenomic
 and metatranscriptomic samples more and more tools become
 available. This tool is focussed on finding the representation of
@@ -17,12 +16,17 @@ metAEP:
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
 * Installation
-Install metAEP using conda. Conda can be installed from [[https://docs.conda.io/en/latest/miniconda.html][miniconda]]. 
+Install metAEP dependencies using conda. Conda can be installed from
+[[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. 
 #+BEGIN_EXAMPLE
 ~$ conda env create -f metAEP.yml metAEP
 ~$ conda activate metAEP
 #+END_EXAMPLE
-After this all the dependencies are installed and metAEP is ready to go. 
+After this all the dependencies are installed. To install metAEP run:
+#+BEGIN_EXAMPLE
+~$ git clone https://github.com/KoenvdBerg/metAEP.git
+#+END_EXAMPLE
+
 
 * Overview and quickstart
 ** metAEP.download.py
