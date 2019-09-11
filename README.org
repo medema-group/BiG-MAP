@@ -1,13 +1,15 @@
 * metAEP is currently in development!
 * Short description
-For the analysis of bacterial metagenomic and metatranscriptomic
-samples more and more tools become available. This tool is focussed on
-finding the representation of primary metabolic pathways and their
-related homologs in metagenomic and metatranscriptomic samples. These
-pathways are readily obtained from (draft) bacterial genomes using
-antiSMASH or gutSMASH. To be able to process the outputs from these
-tools into proper abundance and expressions values, the following
-programs form the essential part of metAEP:
+the metagenomic/metatranscriptomic Abundance and Expression Pipeline
+is currently in development. For the analysis of bacterial metagenomic
+and metatranscriptomic samples more and more tools become
+available. This tool is focussed on finding the representation of
+primary metabolic pathways and their related homologs in metagenomic
+and metatranscriptomic samples. These pathways are readily obtained
+from (draft) bacterial genomes using antiSMASH or gutSMASH. To be able
+to process the outputs from these tools into proper abundance and
+expressions values, the following programs form the essential part of
+metAEP:
 - metAEP.download.py
 - metAEP.genecluster.py
 - metAEP.map.py
