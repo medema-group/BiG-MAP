@@ -1,10 +1,12 @@
  #! usr/bin/env python3
 
 """
+--------------- Download module ---------------
 Author: Koen van den Berg
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 21/05/2019
+-----------------------------------------------
 """
 
 # Import statements
@@ -18,20 +20,32 @@ import argparse
 # Definitions
 def get_arguments():
     """Parsing the arguments"""
-    parser = argparse.ArgumentParser(description="Downloads user\
-    specified WGS data from the NCBI. Dependencies: fastq-dump")
+    parser = argparse.ArgumentParser(description="",
+    usage='''
+
+
+######################################################################
+# Metaclust Download: correctly download using fastq-dump program    #
+######################################################################
+Generic command: python3 metaclust.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
+
+
+
+Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
+
+Obligatory arguments:
+    -A    Put the filepath to the accession list file here. This file
+          should consist of one accession on each line only. 
+    -O    Put path to the output folder where the results should be
+          deposited. Default = current folder (.)
+
+''')
     parser.add_argument( "-n", "--datanumber", help="Input the WGS\
     data, as mentioned in the table with data recommendations (see\
     https://github.com/KoenvdBerg/MSc_thesis). Input number\
-    here.", required = True)
-    parser.add_argument( "-o", "--outdir", help="Put path to the\
-    folder where the downloaded files should be located\
-    here. Default = current folder (.)", required = True)
-    parser.add_argument( "-a", "--acclist", help="In the case of not\
-    using a recommended dataset, but your own, specify the SRA\
-    accession list file here, as obtainable through\
-    https://www.ncbi.nlm.nih.gov/Traces/study/?go=home., and then\
-    clicking Accession list", required = False)
+    here.", required = False)
+    parser.add_argument( "-O", "--outdir", help=argparse.SUPPRESS, required = True)
+    parser.add_argument( "-A", "--acclist", help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-p", "--fastqdump", help="Specify the full\
     path to the fastq-dump program location here. default =\
     /bin/fastq-dump. In the case that the program is not installed,\

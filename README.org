@@ -1,4 +1,4 @@
-* metaclust is currently in development!
+* metAEP is currently in development!
 * Short description
 For the analysis of bacterial metagenomic and metatranscriptomic
 samples more and more tools become available. This tool is focussed on
@@ -7,11 +7,11 @@ related homologs in metagenomic and metatranscriptomic samples. These
 pathways are readily obtained from (draft) bacterial genomes using
 antiSMASH or gutSMASH. To be able to process the outputs from these
 tools into proper abundance and expressions values, the following
-programs form the essential part of metaclust:
-- metaclust.download.py
-- metaclust.genecluster.py
-- metaclust.map.py
-- metaclust.analyse.py
+programs form the essential part of metAEP:
+- metAEP.download.py
+- metAEP.genecluster.py
+- metAEP.map.py
+- metAEP.analyse.py
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
 * Requirements
@@ -27,11 +27,18 @@ For information on how to implement this program, scroll down to
 - biom
 
 ** Packages:
+*** Python
 - BioPython
 - pandas
+*** R
 - metagenomeSeq
+- biomformat
+- ComplexHeatmap=2.0.0
+- viridisLite
+- RColorBrewer
+- tidyverse
 * Overview and quickstart
-** metaclust.download.py
+** metAEP.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
@@ -39,7 +46,7 @@ into /.fastq/ pairs using /fastq-dump/. The typical workflow for
 downloading samples for the online NCBI repository is the following:
 #+BEGIN_EXAMPLE
 usage:
-python3 metaclust.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
+python3 metAEP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
 
 Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
 
@@ -73,7 +80,7 @@ optional arguments:
 |  4 | Abu-Ali et al.                             | It reports a large-scale investigation of 372 human faecal metatranscriptomes and 929 metagenomes from a subset of 308 men in the Health Professionals Follow-Up Study. | Gut microbiome          | PRJNA354235  |
 |  5 | University Medical Centre Groningen (UMCG) | Metagenomic data of 45 IBD and 20 non-IBD Dutch participants. Could be useful for validation of our results.                                                            | Gut microbiome          | upon request |
 
-** metaclust.genecluster.py
+** metAEP.genecluster.py
 For obtaining the correct metabolic gene cluster sequences, either
 antiSMASH or gutSMASH should be run in advance on interesting
 reference genomes. This module will consequently take those results
@@ -88,7 +95,7 @@ expression and abundance levels that are known /a priori/. A typical
 workflow looks like this:
 #+BEGIN_EXAMPLE
 usage:
-python3 metaclust.genecluster.py [Options]* -D [input dir(s)] -O [output dir]
+python3 metAEP.genecluster.py [Options]* -D [input dir(s)] -O [output dir]
 
 Create a redundancy filtered fasta reference file from multiple
 anti/gutSMASH outputs.
@@ -113,7 +120,7 @@ optional arguments:
                         /mnt/scratch/programs/ Installation guidelines are
                         found on Github: https://github.com/ParBLiSS/FastANI
 #+END_EXAMPLE
-** metaclust.map.py
+** metAEP.map.py
 This module is designed to map the metagenomic and/or
 metatranscriptomic samples to the reference that is created using
 module 2. It does this using /bowtie2/. The following will be
@@ -123,7 +130,7 @@ calculated using /Bedtools/, and the read count values using
 
 #+BEGIN_EXAMPLE
 usage:
-python3 metaclust.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
+python3 metAEP.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format
@@ -147,22 +154,22 @@ optional arguments:
                         Also calculate the RPKM and coverage values for the
                         core of the cluster present in the bedfile. Specify
                         the bedfile here. Bedfiles are outputted by
-                        metaclust.genecluster.py automatically.
+                        metAEP.genecluster.py automatically.
   -b BIOM_OUTPUT, --biom_output BIOM_OUTPUT
                         Outputs the resulting read counts in biom format
                         (v1.0) as well. This will be useful to analyze the
-                        results in metaclust.analyse. Therefore, it is
+                        results in metAEP.analyse. Therefore, it is
                         important to include the metadata here as well: this
                         metagenomical data should be in the same format as the
                         example metadata
 #+END_EXAMPLE
-** metaclust.analyse.py
+** metAEP.analyse.py
 This program analyses the mapping results using either a zero-inflated
 Gaussian mixture model (fitZIG) or a Kruskall model. 
 
 #+BEGIN_EXAMPLE
 usage:
-python3 metaclust.analyse.py test -B <biom_file> -T <SampleType> -M <meta_group> -G <[groups]> -O <outdir>
+python3 metAEP.analyse.py test -B <biom_file> -T <SampleType> -M <meta_group> -G <[groups]> -O <outdir>
 
 Tests the present biom file using either a fitZIG model or a
 Kruskall-Wallis model

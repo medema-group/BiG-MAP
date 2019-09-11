@@ -1,9 +1,12 @@
 #! usr/bin/env python3
 
-"""Author: Koen van den Berg
+"""
+--------------- Mapping module ---------------
+Author: Koen van den Berg
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 01/07/2019
+----------------------------------------------
 
 The purpose of this script is to map the metagenomic and
 metatranscriptomic samples to the fasta database that has been created
@@ -12,6 +15,9 @@ the found metabolic gene clusters and biosynthetic gene clusters by
 gutSMASH and antiSMASH respecively. The core of this part of the
 pipeline will consist of bowtie2 which, according to my BSC thesis,
 performs most optimal using the sensitive-local setting. 
+
+
+
 """
 
 # Import statements:
@@ -30,34 +36,42 @@ import textwrap
 # Functions:
 def get_arguments():
     """Parsing the arguments"""
-    parser = argparse.ArgumentParser(description="This script maps\
-    the\ fastq files to the reference GCFs. It works as follows: ...",
-    usage="metaclust.map.py [Options] -I1 [mate-1s] -I2 [mate-2s] -R\
- [reference] -O [outdir]")
-    parser.add_argument("-R", "--reference", help="Provide the\
-    reference fasta file. format = .fasta or .fa", required=True)
-    parser.add_argument("-O", "--outdir", help="Put the path to the\
-    output folder for the results here. The folder should be an\
-    existing folder. Default = current folder (.)", required=True)
-    parser.add_argument("-I1","--fastq1", nargs='+',help="Provide the\
-    mate 1s of the paired metagenomic and/or metatranscriptomic\
-    samples here. These samples should be provided in fastq-format\
-    (.fastq, .fq, .fq.gz). Also, this can be a comma seperated list\
-    from the command line", required=True)
-    parser.add_argument("-I2","--fastq2",nargs='+',help="Provide the\
-    mate 2s of the paired metagenomic and/or metatranscriptomic\
-    samples here. These samples should be provided in fastq-format\
-    (.fastq, .fq, .fq.gz). Also, this can be a comma seperated list\
-    from the command line", required = True)
+    parser = argparse.ArgumentParser(description="",
+    usage='''
+######################################################################
+# Metaclust map: maps the paired reads to the predicted MGCs         #
+######################################################################
+Generic command: python3 metaclust.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
+
+Maps the metagenomic/metatranscriptomic reads to the fasta reference
+file and outputs RPKM read counts in .csv and BIOM format
+
+Obligatory arguments:
+    -R    Provide the reference fasta file in .fasta or .fna format
+    -I1   Provide the mate 1s of the paired metagenomic and/or
+          metatranscriptomic samples here. These samples should be
+          provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
+          can be a space seperated list from the command line.
+    -I2   Provide the mate 2s of the paired metagenomic and/or
+          metatranscriptomic samples here. These samples should be
+          provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
+          can be a space seperated list from the command line.
+    -O    Put path to the output folder where the results should be
+          deposited. Default = current folder (.)
+''')
+    parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-cc", "--corecalculation", help="Also\
-    calculate the TPM, RPKM and coverage values for the core of the\
-    cluster present in the bedfile. Specify the bedfile here.",
+    calculate the RPKM and coverage values for the core of the\
+    cluster present in the bedfile. Specify the bedfile here. Bedfiles\
+    are outputted by metaclust.genecluster.py automatically.",
     required = False)
     parser.add_argument( "-b", "--biom_output", help=f"Outputs the\
     resulting read counts in biom format (v1.0) as well. This will be\
-    useful to analyze the results in other programs as well, most\
-    importantly metagenomeSeq. If metagenomical data is provided,\
-    these will be included as well in the end. This metagenomical\
+    useful to analyze the results in metaclust.analyse. Therefore, it \
+    is important to include the metadata here as well: this metagenomical\
     data should be in the same format as the example metadata",
     type=str, required = False)
 
@@ -143,15 +157,17 @@ def bowtie2_map(outdir, mate1, mate2, index):
     try:
         if not os.path.exists(samfile):
             cmd_bowtie2_map = f"bowtie2\
-            --sensitive\
+            --sensitive-local\
             --no-unal\
             --threads 6 \
             -x {index} \
             -1 {mate1} \
             -2 {mate2} \
             -S {samfile}" # The .sam file will contain only the map results for 1 sample
-            print(f"the following command will be executed by bowtie2:\n--\
---------\n{cmd_bowtie2_map}\n----------")
+            print(f"the following command will be executed by bowtie2:\n\
+#####################################################\n\
+{cmd_bowtie2_map}\n\
+#####################################################\n")
             res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr = subprocess.STDOUT)
             # Saving mapping percentage:
             with open(f"{outdir}bowtie2_log.txt", "a+") as f:
@@ -665,8 +681,9 @@ def main():
     6) cleaning output directory
     """
     args = get_arguments()
+    print("########## Fastq-files ##############################")
     print("\n".join(args.fastq1))
-    print("----------\n")
+    print("#####################################################")
     print("\n".join(args.fastq2))
 
     results = {} #Will be filled with TPM,RPKM,coverage for each sample
@@ -701,10 +718,10 @@ def main():
         # saving results in one dictionary
         ##############################
         sample = Path(b).stem
-        results[f"{sample}.TPM"] = [TPM[k] for k in TPM.keys()]
-        results[f"{sample}.RPKM"] = [RPKM[k] for k in TPM.keys()]
-        results[f"{sample}.cov"] = [coverage[k] for k in TPM.keys()]
-        results["gene_clusters"] = list(TPM.keys()) # add gene clusters as well
+        results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
+        results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
+        results[f"{sample}.cov"] = [coverage[k] for k in RPKM.keys()]
+        results["gene_clusters"] = list(RPKM.keys()) # add gene clusters as well
 
         ##############################
         # Core calculation
@@ -718,9 +735,9 @@ def main():
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
             core_coverage = computecorecoverage(core_bedgraph, args.corecalculation)
-            results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_TPM.keys()]
-            results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_TPM.keys()]
-            results[f"{sample}.corecov"] = [core_coverage[k] if "DNA--" in k else 0 for k in core_TPM.keys()]
+            results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
+            results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
+            results[f"{sample}.corecov"] = [core_coverage[k] if "DNA--" in k else 0 for k in core_RPKM.keys()]
 
     ##############################
     # writing results file: pandas
@@ -753,8 +770,18 @@ def main():
     df_cov.columns = [h[:-8] for h in headers_cov if ".corecov" in h]
     df_cov.index.names = ['#gene_clusters']
     df_cov.to_csv(f"{args.outdir}metaclust.map.core.coverage.txt", sep="\t")
-    
-                    biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)
+
+    # writing the results to biom format:
+    if args.biom_output:
+        try:
+            if args.corecalculation:
+                biomfile = export2biom(args.outdir)
+                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
+                biomfile = export2biom(args.outdir, "core")
+                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
+            else:
+                biomfile = export2biom(args.outdir)
+                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)    
         except(EOFError):
             biomfile = export2biom(args.outdir)
     

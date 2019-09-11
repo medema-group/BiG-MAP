@@ -1,10 +1,12 @@
 #! usr/bin/env python3
 
 """
+--------------- MGC/BGC module ---------------
 Author: Koen van den Berg
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 21/05/2019
+----------------------------------------------
 
 This code was inspired by the BiG-SCAPE project, which can be found
 at: https://git.wageningenur.nl/medema-group/BiG-SCAPE/blob/master/. I
@@ -16,37 +18,18 @@ to use as input for the pipeline. It parses the DNA and protein
 sequences from the antiSMASH genbank files, calculates GCFs using
 fastani, and outputs the database.
 
-parameters
-----------
-indir
-    the path to the anti- or gutSMASH folder
-outdir
-    the path to the directory where the results should be saved
-fastani
-    the path to the fastANI program
-flank_genes
-    the number of flanking genes to be included as well
+Additional information: 
+This script takes gut- and antiSMASH output directories as input,
+converts the .gbk files to fasta files and then calculates gene
+cluster families based on the similarity treshold (default=0.9) using
+fastANI. In addition, HMMer is used to find several relevant
+housekeeping genes from the whole genome genbank files, which are also
+present in the antiSMASH output. These housekeeping genes will be
+essential downstream for comparing the resutls of the gene clusters
+with resutls that are known a priori. The output consists of the
+following items: GCFs clusters, GCF fasta file, fastANI results, and a
+fastANI histogram. Dependencies: BioPython, awk
 
-output
-----------
-fastani.GCFs.json
-    the file containing the redundancy filtered dictionary 
-fastani.histogram.png
-    histogram of all the fastani comparisons
-fastani.query.txt
-    the query used for fastani
-fastani.reference.txt
-    the reference used for fastani
-fastani.results
-    the raw fastani results
-fastani.results.filtered
-    the fastani results above a similarity treshold
-fastani.Rinput
-    the fastani results input for R to make the histogram
-metaclust.GCFs_dna_reference.fa
-    the redundancy filtered GCF reference fasta file
-metaclust.enzymes.bedfile.bed
-    contains the locations of the genes for each gene cluster in BED format
 """
 
 # Import statements
@@ -64,25 +47,30 @@ from Bio.SeqFeature import FeatureLocation
 
 def get_arguments():
     """Parsing the arguments"""
-    parser = argparse.ArgumentParser(description="This script takes\
-    gut- and antiSMASH output directories as input, converts the .gbk\
-    files to fasta files and then calculates gene cluster families\
-    based on the similarity treshold (default=0.9) using fastANI. In\
-    addition, HMMer is used to find several relevant housekeeping\
-    genes from the whole genome genbank files, which are also present\
-    in the antiSMASH output. These housekeeping genes will be\
-    essential downstream for comparing the resutls of the gene\
-    clusters with resutls that are known a priori. The output consists\
-    of the following items: GCFs clusters, GCF fasta file, fastANI\
-    results, and a fastANI histogram. Dependencies: BioPython, awk.", usage="metaclust.genecluster.py [Options] -D [input dir(s)] -O [output dir]")
-    parser.add_argument( "-D", "--indir",help="Specify the path to \
-    the directory containing the gut- or antiSMASH outputs here. This \
-    could be a singular directory, or a space seperated list of \
-    directories.", nargs = "+", required = True)
-    parser.add_argument( "-O", "--outdir",help="Put path to the\
-    folder where the fastANI filtered gene cluster files should be located here. The\
-    folder should be an existing folder. Default = current folder\
-    (.)", required = True)
+    parser = argparse.ArgumentParser(description="",
+    usage=''' 
+
+
+######################################################################
+# Metaclust genecluster: creates a redundancy filtered reference fna #
+######################################################################
+Generic command: python3 metaclust.genecluster.py [Options]* -D [input dir(s)] -O [output dir]
+
+
+
+Create a redundancy filtered fasta reference file from multiple
+anti/gutSMASH outputs.  
+
+Obligatory arguments:
+    -D    Specify the path to the directory containing the gut- or
+          antiSMASH outputs here. This could be a singular directory, 
+          or a space seperated list of directories.
+    -O    Put path to the folder where the fastANI filtered gene 
+          cluster files should be located here. The folder should be
+          an existing folder. Default = current folder (.)
+''')
+    parser.add_argument( "-D", "--indir",help=argparse.SUPPRESS, nargs = "+", required = True)
+    parser.add_argument( "-O", "--outdir",help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-f", "--flank_genes", help="Specify here the\
     number of genes that are flanking the core genes of the gene\
     cluster. 0 --> only the core, n --> n genes included that flank\
@@ -222,7 +210,7 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     """
     regionno = infile.split("/")[-1].split(".")[-2]
     orgID =  infile.split("/")[-1].split(".")[0]
-    orgID = orgID if 'PROT' not in orgID else orgID[5:]
+    orgID = orgID[5:] if 'PROT' in orgID else orgID
     Outfile = f"{outdir}{cluster if seqstype=='HousekeepingGene' else seqstype}-{orgID}.{organism}.{regionno}.fasta"
     fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i+80] for i in range(0,len(str(sequences)),80))
@@ -576,8 +564,8 @@ def main():
     10) clean up the output directory
     """
     args = get_arguments()
-    print(args)
 
+    print("########## Extracting fasta files ###################")
     ##############################
     # parsing data to fasta files
     ##############################
@@ -620,6 +608,7 @@ def main():
     ##############################
     # housekeeping genes (9)
     ##############################
+    print("########## Adding housekeeping genes ################")
     hmmfile = Path(f"{sys.path[0]}") / "pfamdomains/combined.hmm"
     processed = []
     for fname in GCFs.keys():
@@ -635,7 +624,9 @@ def main():
                 f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir)
                 append_fasta(GCFs_fasta, f)
                 GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
+            print(f"########## DONE: {organism} ################")
         processed.append(organism)
+
 
     # Remembering the enzymatic gene locations
     bedfile = locs2bedfile(GC_enzyme_locs, args.outdir) 

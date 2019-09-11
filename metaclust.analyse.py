@@ -1,13 +1,20 @@
 #! usr/bin/env python3
 
-"""Author: Koen van den Berg
+"""
+--------------- Analyse module ---------------
+Author: Koen van den Berg
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 01/07/2019
+----------------------------------------------
 
-The main purpose of this script is to analyse the biom files that are
-outputted by module 3. This script will function as a Python wrapper
-script.
+This is a wrapper script for the analysis of the
+metagenomic/metatranscriptomic samples. This script first normalizes
+and filters the data. Next either a ZIG model or Kruskall-Wallis model
+will be implemented to compute differentially abundant/expressed gene
+clusters. Benjamini-Hochber FDR is implemented to compensate for
+multiple hypothesis testing. Output will be heatmaps of significantly
+DA genes.
 
 """
 # Import statements:
@@ -26,17 +33,16 @@ import shutil
 ######################################################################
 class Arguments(object):
     def __init__(self):
-        parser = argparse.ArgumentParser(description="This is a\
-        wrapper script for the analysis of the\
-        metagenomic/metatranscriptomic samples. This script first\
-        normalizes and filters the data. Next either a ZIG model or\
-        Kruskall-Wallis model will be implemented to compute\
-        differentially abundant/expressed gene\
-        clusters. Benjamini-Hochber FDR is implemented to compensate\
-        for multiple hypothesis testing. Output will be heatmaps of\
-        significantly DA genes.", usage='''python3 metaclust.analyse.py <command> [<args>]
+        parser = argparse.ArgumentParser(description="", usage='''
 
-The available commands are:
+######################################################################
+# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
+######################################################################
+generic command: python3 metaclust.analyse.py <command> [<args>]
+
+Analyse the .BIOM output from metaclust.map.py 
+
+Available commands
     inspect    show available comparison options
     test       analyse a BIOM file''')
         parser.add_argument("command", help="Subcommand to run")
@@ -48,31 +54,58 @@ The available commands are:
         getattr(self,self.args.command)()
         
     def inspect(self):
-        parser = argparse.ArgumentParser(description="Display the\
-        avalaible comparisons that are present in the biom-file file\
-        here", usage='''python3 metaclust.analyse.py inspect -B <biom_file> ''')
-        parser.add_argument("-B", "--biom_file", help="Provide the\
-        biom file here", required=False)
+        parser = argparse.ArgumentParser(description="",
+        usage='''
+######################################################################
+# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
+######################################################################
+Generic command: python3 metaclust.analyse.py inspect -B [biom_file]
+
+Display the avalaible comparisons that are present in the biom-file
+file here
+
+Obligatory arguments:
+    -B    Provide the Biom file here ''')
+        parser.add_argument("-B", "--biom_file", help=argparse.SUPPRESS, required=True)
         self.inspect = parser.parse_args(sys.argv[2:])
         #return(self.inspect)
 
     def test(self):
-        parser = argparse.ArgumentParser(description="Tests the\
-        present biom file using either a fitZIG model or a\
-        Kruskall-Wallis model.", usage = "python3 metaclust.analyse.py\
- test -B <biom_file> -M <meta_group> -G <[groups]> -O <outdir>")
-        parser.add_argument("-B", "--biom_file", help="Provide the\
-        biom file here", required=True)
-        parser.add_argument("-M", "--metagroup", help="provide the\
-        metagroup here. This is the first column in the options\
-        output. Examples: DiseaseStatus, SampleType etc...", type=str,
+        parser = argparse.ArgumentParser(description="", usage ='''
+
+
+######################################################################
+# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
+######################################################################
+Generic command: python3 metaclust.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
+
+
+
+Tests the present biom file using either a fitZIG model or a
+Kruskall-Wallis model. Note that it is also possible to work in R
+studio with the R script: meteclust.norm.R
+
+Obligatory arguments:
+    -B    Provide the Biom file here
+    -T    metagenomic/metatranscriptomic
+    -M    provide the metagroup here. This is the first column in the 
+          options output. Examples: DiseaseStatus, Longitude, etc...
+    -G    Space separated list of 2 groups that are to be compared. 
+          Example: UC and non-IBD --> UC non-IBD
+    -O    Put path to the output folder where the results should be
+          deposited. Default = current folder (.)
+''')
+        parser.add_argument("-B", "--biom_file",
+                            help=argparse.SUPPRESS, required=True)
+        parser.add_argument("-T", "--sample_type",
+                            help=argparse.SUPPRESS, type=str,
                             required=True)
-        parser.add_argument("-G", "--groups", help="Space separated\
-        list of 2 groups that are to be compared. Example UC non-IBD",
-        type=str, nargs='+', required=True)
-        parser.add_argument("-O", "--outdir", help="Put the path to\
-        the output folder for the results here. The folder should be\
-        an existing folder. Default = current folder (.)",
+        parser.add_argument("-M", "--metagroup",
+                            help=argparse.SUPPRESS, type=str,
+                            required=True)
+        parser.add_argument("-G", "--groups", help=argparse.SUPPRESS,
+                            type=str, nargs='+', required=True)
+        parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS,
                             required=True)
         self.test = parser.parse_args(sys.argv[2:])
 
@@ -119,13 +152,12 @@ def pprint(d, indent=0):
             pretty(value, indent+1)
         else:
             print('\t' * (indent+1) + str(value))
-        print("--------------------------------------------------")
-
+        print("#####################################################")
 
 ######################################################################
 # Analyse functionality
 ######################################################################
-def analysebiom(biom_file, outdir, MT, groups):
+def analysebiom(biom_file, sampletype, outdir, MT, groups):
     """wrapper for R script to analyse biom formats
     parameters
     ----------
@@ -145,22 +177,26 @@ def analysebiom(biom_file, outdir, MT, groups):
     abspath = os.path.abspath("metaclust.genecluster.py")
     dname = os.path.dirname(abspath)
     Rloc = "/mnt/scratch/berg266/programs/R-3.6.1/bin/"
+    s_type = "METAGENOMIC" if "genomic" in sampletype else "METATRANSCRIPTOMIC"
     try:
         # Reducing file size first using awk
-        cmd_R = f"{Rloc}Rscript {dname}/metaclust.norm.R {biom_file} {outdir} {MT} {groups[0]} {groups[1]}"
-        print(cmd_R)
+        cmd_R = f"{Rloc}Rscript {dname}/metaclust.norm.R {biom_file} {s_type} {outdir} '{MT}' '{groups[0]}' '{groups[1]}'"
         res_R = subprocess.check_output(cmd_R, shell=True)
     except(subprocess.CalledProcessError):
-        # Raise error here for error table
-        pass
+        print("########## ERROR ####################################")
+        print(f"An error occured, did you input the correct values? Current values:\nbiom file: {biom_file}\nSampletype: {sampletype} -->{s_type}\nMetagroup: {MT}\nGroup_1: {groups[0]}\nGroup_2: {groups[1]}")
+        print("Visit the available options through the 'inspect' command")
+        sys.exit()
     return()
 
-def movetooutdir(outdir, pattern):
-    """moves files matching a patterd into output directory
+def movetodir(outdir, dirname, pattern):
+    """moves files matching a patterd into new directory
     parameters
     ----------
     outdir
         string, the path to output directory
+    dirname
+        string, name of the new direcory
     pattern
         string, regex
     returns
@@ -169,10 +205,16 @@ def movetooutdir(outdir, pattern):
     """
     abspath = os.path.abspath("metaclust.genecluster.py")
     dname = os.path.dirname(abspath)
-    # Move files into outdir
+    # Make directory
+    try:
+        os.mkdir(f"{outdir}{dirname}")
+        print(f"Directory {outdir}{dirname} created")
+    except(FileExistsError):
+        print(f"Directory {outdir}{dirname} already exists")
+    # Move files into new directory
     for f in os.listdir(dname):
         if re.search(pattern, f):
-            shutil.move(os.path.join(dname,f), outdir)
+            shutil.move(os.path.join(dname,f), os.path.join(outdir, dirname))
 
 ######################################################################
 # MAIN
@@ -181,20 +223,21 @@ def main():
     main_args = Arguments()
 
     if main_args.args.command == "inspect":
+        print("########## Extracting options #######################")        
         d = extractoptions(main_args.inspect.biom_file)
         pprint(d)
         sys.exit()
 
-    try:
-        analysebiom(main_args.test.biom_file,\
-                    main_args.test.outdir,\
-                    main_args.test.metagroup,\
-                    main_args.test.groups)
-    except:
-        # IF there is no hit (error) then there is no significance
-        pass
+    print("########## Loading R Functions ######################")
+    analysebiom(main_args.test.biom_file,\
+                main_args.test.sample_type,\
+                main_args.test.outdir,\
+                main_args.test.metagroup,\
+                 main_args.test.groups)
 
-    movetooutdir(main_args.test.outdir, ".png")
+    print("########## Moving result files to outdir ############")
+    movetodir(main_args.test.outdir, "analyse_results", ".png")
+    movetodir(main_args.test.outdir, "analyse_results", ".csv")
     
 
 
