@@ -46,6 +46,7 @@ Generic command: python3 metaclust.map.py [Options]* -R [reference] -I1 [mate-1s
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format
 
+====================================================================
 Obligatory arguments:
     -R    Provide the reference fasta file in .fasta or .fna format
     -I1   Provide the mate 1s of the paired metagenomic and/or
@@ -58,22 +59,27 @@ Obligatory arguments:
           can be a space seperated list from the command line.
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
+
+Options:
+    -cc   Also calculate the RPKM and coverage values for the core of
+          the cluster present in the bedfile. Specify the bedfile
+          here. Bedfiles are outputted by metaclust.genecluster.py
+          automatically
+    -b    Outputs the resulting read counts in biom format (v1.0) as
+          well. This will be useful to analyze the results in
+          metaclust.analyse. Therefore, it  is important to include
+          the metadata here as well: this metagenomical data should
+          be in the same format as the example metadata
+====================================================================
 ''')
     parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=True)
     parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = True)
-    parser.add_argument( "-cc", "--corecalculation", help="Also\
-    calculate the RPKM and coverage values for the core of the\
-    cluster present in the bedfile. Specify the bedfile here. Bedfiles\
-    are outputted by metaclust.genecluster.py automatically.",
-    required = False)
-    parser.add_argument( "-b", "--biom_output", help=f"Outputs the\
-    resulting read counts in biom format (v1.0) as well. This will be\
-    useful to analyze the results in metaclust.analyse. Therefore, it \
-    is important to include the metadata here as well: this metagenomical\
-    data should be in the same format as the example metadata",
-    type=str, required = False)
+    parser.add_argument( "-cc", "--corecalculation",
+                         help=argparse.SUPPRESS, required = False)
+    parser.add_argument( "-b", "--biom_output",
+                         help=argparse.SUPPRESS, type=str, required = False)
 
 
     """
@@ -384,6 +390,25 @@ def calculateRPKM(countsfile):
         except(ZeroDivisionError):
             RPKM[key] = 0
     return(RPKM)
+
+def parserawcounts(countsfile):
+    """parses the raw counts from a countsfile
+    parameters
+    ----------
+    counts_file
+        file containing the counts
+    returns
+    ----------
+    raw_counts = dictionary containing raw counts per cluster
+    """
+    raw_counts = {}
+    with open(countsfile, "r") as f:
+        for line in f:
+            if "*" not in line:
+                line = line.strip()
+                cluster, length, nreads, nnoreads = line.split("\t")
+                raw_counts[cluster] = float(nreads)
+    return(raw_counts)
     
 ######################################################################
 # Functions for analysing coverage with Bedtools genomecov
@@ -497,13 +522,19 @@ def computetotalcoverage(bgfile):
 
 def computecorecoverage(bedgraph, bedfile):
     """computes the core "enzymatic" coverage for gene clusters
-    This computation is based on the fact that the core_coverage can
-    be calculated using the number of bases covered divided by the
-    length of the core like this:
-    cc = bc/cl
-    cc = core coverage
-    bc = bases covered for individual cluster
-    cl = lenght of particular cluster
+    EXPLANATION:
+    This computation is based on the bedfile that contains the
+    coordinates for the enzymatic genes. What happens is that the
+    algorithm finds entries that have 0 coverage, and compares if the
+    regions of these entries are within the enzymatic core
+    regions. Based on this, certain computations will be made as
+    defined in the local function. In the end, the amount of bases for
+    which 0 coverage was found are added up, and then substracted from
+    the total length of the core:
+    core_coverage = (length_core - bases_not_covered)/length_core
+    EXAMPLE:
+    say that of a core of length 3000 340 bases are not covered, then:
+    core_coverage = (3000-340)/3000 = 0.887
     parameters
     ----------
     bedgraph
@@ -514,7 +545,42 @@ def computecorecoverage(bedgraph, bedfile):
     ----------
     core_coverage = dict, {cluster: corecov}
     """
-    # Finding the lengths of the core clusters
+    def local_computecov(start_list, end_list, local_entry):
+        """Computes the local cov value
+        Ls = local entry start 
+        Le = local entry end
+        Ts = true start of core gene 
+        Te = true end of core gene 
+        parameters
+        ----------
+        start_list
+            list, all the start coords for the enzymatic core genes
+        end_list
+            list, all the start coords for the enzymatic core genes
+        local_entry
+            list, [start, end] of local entry
+        returns
+        ----------
+        local_cov = int, value for not covered bases for entry
+        """
+        ret_cov = 0
+        Ls = local_entry[0]
+        Le = local_entry[1]
+        for Ts, Te in zip(start_list, end_list):
+            if Ls>Ts and Ls<Te and Le>Ts and Le<Te:
+                # in
+                ret_cov += Le-Ls
+            if Ls<Ts and Ls<Te and Le>Ts and Le<Te:
+                # start out
+                ret_cov += Le-Ts
+            if Ls>Ts and Ls<Te and Le>Ts and Le>Te:
+                # end out
+                ret_cov += Te-Ls  
+            if Ls<Ts and Ls<Te and Le>Ts and Le>Te:
+                # start&end out
+                ret_cov += Te-Ts
+        return(ret_cov)
+    # Parsing bedfile for Ts, Te, and core lengths:
     core_starts = {}
     core_ends = {}
     core_lengths = {}
@@ -531,50 +597,23 @@ def computecorecoverage(bedgraph, bedfile):
                 core_ends[clust] = []
             core_starts[clust].append(int(start))
             core_ends[clust].append(int(end))
-    # Whole cluster coverage calculation for each enzyme (including
-    # flanking genes)
-    core_cov = {}
-    flag = False
-    index = {}
-    with open(bedgraph, "r") as f:
-        for line in f:
-            line = line.strip()       
+    # Parsing bedgraph for entries
+    nocov = {}                                                 
+    with open(bedgraph, "r") as f:                               
+        for line in f:                                         
+            line = line.strip()                                
             cluster, start, end, cov = line.split("\t")
-            start = float(start)
-            end = float(end)
-            cov = float(cov)
-            if not cluster in core_cov: # make entry
-                core_cov[cluster] = 0
-                index = 0
-            try:
-                try:
-                    if core_ends[cluster][index] <= end and core_ends[cluster][index] >= start:
-                        if cov != 0: # enter no coverage values
-                            core_cov[cluster] += core_ends[cluster][index]-start
-                        flag = False
-                        index += 1
-                    if flag:
-                        if cov != 0:
-                            core_cov[cluster] += end - start
-                    if core_starts[cluster][index] >= start and core_starts[cluster][index] <= end:
-                        if cov != 0: # enter no coverage values
-                            core_cov[cluster] += end-core_starts[cluster][index]
-                        flag = True
-                except(IndexError):
-                    pass
-            except(KeyError):
-                core_cov[cluster] = 0
-    # Calculation
-    core_coverage = {}
-    for key in core_cov.keys():
-        try:
-            perc = (core_cov[key])/core_lengths[key]
-            if perc > 1: # Sometimes core is no more than 30bp longer than expected
-                perc = 1
-            core_coverage[key] = perc
-        except(KeyError):
-            core_coverage[key] = 0
-    return(core_coverage)
+            if not cluster in nocov: # make entry
+                nocov[cluster] = 0
+            if float(cov) == 0: # enter no coverage values
+                not_covered = local_computecov(core_starts[cluster], core_ends[cluster], [int(start), int(end)])
+                nocov[cluster] += not_covered
+    # Final coverage calculation:
+    total_coverage = {}
+    for key in nocov.keys():
+        perc = (core_lengths[key] - nocov[key])/core_lengths[key]
+        total_coverage[key] = perc
+    return(total_coverage)
 
 ######################################################################
 # Functions for writing results and cleaning output directory
@@ -706,6 +745,7 @@ def main():
         countsfile = countbam( sortb, args.outdir)
         TPM =  calculateTPM(countsfile)
         RPKM = calculateRPKM(countsfile)
+        raw = parserawcounts(countsfile)
 
         ##############################
         # bedtools: coverage
@@ -720,6 +760,7 @@ def main():
         sample = Path(b).stem
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
+        results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
         results[f"{sample}.cov"] = [coverage[k] for k in RPKM.keys()]
         results["gene_clusters"] = list(RPKM.keys()) # add gene clusters as well
 
@@ -732,12 +773,16 @@ def main():
             countsfile = countbam( sortb, args.outdir)
             core_TPM =  calculateTPM(countsfile)
             core_RPKM = calculateRPKM(countsfile)
+            core_raw = parserawcounts(countsfile)
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
             core_coverage = computecorecoverage(core_bedgraph, args.corecalculation)
+            #core_coverage = computetotalcoverage(core_bedgraph)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
+            results[f"{sample}.coreRAW"] = [core_raw[k] for k in core_RPKM.keys()]
             results[f"{sample}.corecov"] = [core_coverage[k] if "DNA--" in k else 0 for k in core_RPKM.keys()]
+            
 
     ##############################
     # writing results file: pandas
@@ -746,10 +791,6 @@ def main():
     df = pd.DataFrame(results)
     df.set_index("gene_clusters", inplace=True)
     df.to_csv(f"{args.outdir}metaclust.map.results.ALL.csv")
-    #df = df.loc[(df != 0).any(1)]
-    #coverage_treshold = df[f"{sample}.cov"] > args.coverage_treshold
-    #df = df[coverage_treshold]
-    #df.to_csv(f"{args.outdir}metaclust.map.results.ALL_filtered.csv")
     
     # writing RPKM (core) filtered results
     headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
@@ -790,6 +831,7 @@ def main():
     df_perc = pd.DataFrame(mapping_percentages)
     df_perc.to_csv(f"{args.outdir}metaclust.percentages.csv")
 
+    sys.exit()
     ##############################
     # Moving and purging files
     ##############################
