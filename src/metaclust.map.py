@@ -15,9 +15,6 @@ the found metabolic gene clusters and biosynthetic gene clusters by
 gutSMASH and antiSMASH respecively. The core of this part of the
 pipeline will consist of bowtie2 which, according to my BSC thesis,
 performs most optimal using the sensitive-local setting. 
-
-
-
 """
 
 # Import statements:
@@ -38,15 +35,17 @@ def get_arguments():
     """Parsing the arguments"""
     parser = argparse.ArgumentParser(description="",
     usage='''
-######################################################################
-# Metaclust map: maps the paired reads to the predicted MGCs         #
-######################################################################
-Generic command: python3 metaclust.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
+______________________________________________________________________
+
+     Metaclust map: maps the paired reads to the predicted MGCs
+______________________________________________________________________
+
+Generic command: python3 metaclust.map.py [Options]* -R [reference] 
+-I1 [mate-1s] -I2 [mate-2s] -O [outdir]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format
 
-====================================================================
 Obligatory arguments:
     -R    Provide the reference fasta file in .fasta or .fna format
     -I1   Provide the mate 1s of the paired metagenomic and/or
@@ -70,7 +69,12 @@ Options:
           metaclust.analyse. Therefore, it  is important to include
           the metadata here as well: this metagenomical data should
           be in the same format as the example metadata
-====================================================================
+    -f    Input files are in fasta format (.fna, .fa, .fasta): True/False. 
+          Default = False.
+    -s    Bowtie2 setting: very-fast-local, fast-local, sensitive-local
+          , very-sensitive-local. Default = sensitive-local
+______________________________________________________________________
+
 ''')
     parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
@@ -80,6 +84,10 @@ Options:
                          help=argparse.SUPPRESS, required = False)
     parser.add_argument( "-b", "--biom_output",
                          help=argparse.SUPPRESS, type=str, required = False)
+    parser.add_argument( "-f", "--fasta", help=argparse.SUPPRESS,
+                         type=str, required = False, default=False)
+    parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
+                         type=str, required = False, default="sensitive-local")
 
 
     """
@@ -141,7 +149,7 @@ def bowtie2_index(reference, outdir):
         # Proper error here, also exit code
     return(index_name)
 
-def bowtie2_map(outdir, mate1, mate2, index):
+def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting):
     """Maps the .fq file to the reference (fasta)
     parameters
     ----------
@@ -151,6 +159,8 @@ def bowtie2_map(outdir, mate1, mate2, index):
     mate2
     index
         string, the stemname of the bowtie2 index
+    bowtie2_setting
+        string, the build-in setting for bowtie2
     returns
     ----------
     samfile = the .sam filename that contains all the results
@@ -163,17 +173,18 @@ def bowtie2_map(outdir, mate1, mate2, index):
     try:
         if not os.path.exists(samfile):
             cmd_bowtie2_map = f"bowtie2\
-            --sensitive-local\
+            --{bowtie2_setting}\
             --no-unal\
             --threads 6 \
+            {'-f' if fasta else ''} \
             -x {index} \
             -1 {mate1} \
             -2 {mate2} \
             -S {samfile}" # The .sam file will contain only the map results for 1 sample
             print(f"the following command will be executed by bowtie2:\n\
-#####################################################\n\
+_____________________________________________________\n\
 {cmd_bowtie2_map}\n\
-#####################################################\n")
+_____________________________________________________\n")
             res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr = subprocess.STDOUT)
             # Saving mapping percentage:
             with open(f"{outdir}bowtie2_log.txt", "a+") as f:
@@ -347,6 +358,9 @@ def calculateTPM(countsfile):
         for line in f:
             line = line.strip()
             cluster, length, nreads, nnoreads = line.split("\t")
+            if "NR" in cluster:
+                    NR = float(cluster.split("--")[-1].split("=")[-1])
+                    nreads = float(nreads)/NR
             try:
                 rate = float(nreads)/float(length)
                 rates[cluster] = rate
@@ -380,9 +394,14 @@ def calculateRPKM(countsfile):
             if "*" not in line:
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
-                sum_reads += float(nreads)
-                read_counts[cluster] = float(nreads)
+                if "NR" in cluster:
+                    NR = float(cluster.split("--")[-1].split("=")[-1])
+                    nreads = float(nreads)/NR
+                    read_counts[cluster] = nreads
+                else:
+                    read_counts[cluster] = float(nreads)
                 cluster_lengths[cluster] = float(length)
+                sum_reads += float(nreads)
     RPKM = {}
     for key in read_counts:
         try:
@@ -407,7 +426,11 @@ def parserawcounts(countsfile):
             if "*" not in line:
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
-                raw_counts[cluster] = float(nreads)
+                if "NR" in cluster:
+                    NR = float(cluster.split("--")[-1].split("=")[-1])
+                    raw_counts[cluster] = float(nreads)/NR
+                else:
+                    raw_counts[cluster] = float(nreads)
     return(raw_counts)
     
 ######################################################################
@@ -720,9 +743,9 @@ def main():
     6) cleaning output directory
     """
     args = get_arguments()
-    print("########## Fastq-files ##############################")
+    print("_________Fastq-files_________________________________")
     print("\n".join(args.fastq1))
-    print("#####################################################")
+    print("_____________________________________________________")
     print("\n".join(args.fastq2))
 
     results = {} #Will be filled with TPM,RPKM,coverage for each sample
@@ -738,11 +761,11 @@ def main():
     # Whole cluster calculation
     ##############################
     for m1, m2 in zip(args.fastq1, args.fastq2):
-        s = bowtie2_map( args.outdir, m1, m2, i)
-        b = samtobam( s, args.outdir)
-        sortb = sortbam( b, args.outdir)
-        indexbam( sortb, args.outdir)
-        countsfile = countbam( sortb, args.outdir)
+        s = bowtie2_map( args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting)
+        b = samtobam(s, args.outdir)
+        sortb = sortbam(b, args.outdir)
+        indexbam(sortb, args.outdir)
+        countsfile = countbam(sortb, args.outdir)
         TPM =  calculateTPM(countsfile)
         RPKM = calculateRPKM(countsfile)
         raw = parserawcounts(countsfile)
@@ -770,7 +793,7 @@ def main():
         if args.corecalculation:
             sortb = extractcorefrombam( sortb, args.outdir, args.corecalculation)
             indexbam( sortb, args.outdir)
-            countsfile = countbam( sortb, args.outdir)
+            countsfile = countbam(sortb, args.outdir)
             core_TPM =  calculateTPM(countsfile)
             core_RPKM = calculateRPKM(countsfile)
             core_raw = parserawcounts(countsfile)
@@ -831,7 +854,6 @@ def main():
     df_perc = pd.DataFrame(mapping_percentages)
     df_perc.to_csv(f"{args.outdir}metaclust.percentages.csv")
 
-    sys.exit()
     ##############################
     # Moving and purging files
     ##############################

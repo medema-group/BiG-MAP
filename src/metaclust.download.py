@@ -24,12 +24,13 @@ def get_arguments():
     usage='''
 
 
-######################################################################
-# Metaclust Download: correctly download using fastq-dump program    #
-######################################################################
-Generic command: python3 metaclust.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
+______________________________________________________________________
 
+    Metaclust Download: correctly download using fastq-dump program    
+______________________________________________________________________
 
+Generic command: python3 metaclust.download.py [Options]* 
+-A [accession_list_file] -O [path_to_outdir]
 
 Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
 
@@ -38,7 +39,7 @@ Obligatory arguments:
           should consist of one accession on each line only. 
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
-
+______________________________________________________________________
 ''')
     parser.add_argument( "-n", "--datanumber", help="Input the WGS\
     data, as mentioned in the table with data recommendations (see\

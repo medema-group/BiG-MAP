@@ -356,7 +356,7 @@ Kruskalltest_sample <- makekruskalltest(MR_sample, MT, c(group_1, group_2), 0.05
 ##################################
 # MR gen
 if (nrow(ZIGtest_sample$data) > 0){
-  png(sprintf("ZIGmodel_%s_%s_%s.png",group_1, group_2, sampletype), width = 1400)
+  png(sprintf("ZIGmodel_%s_%s_%s.png",group_1, group_2, sampletype), width = 900)
   makecomplexheatmap(ZIGtest_sample, sprintf("%s samples fitZIG model\np<0.05 -- %s vs %s", sampletype, group_1, group_2), sample.name)
   dev.off()
 } else{

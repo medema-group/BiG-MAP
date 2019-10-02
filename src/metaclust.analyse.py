@@ -35,16 +35,21 @@ class Arguments(object):
     def __init__(self):
         parser = argparse.ArgumentParser(description="", usage='''
 
-######################################################################
-# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
-######################################################################
+______________________________________________________________________
+
+   Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+______________________________________________________________________
+
 generic command: python3 metaclust.analyse.py <command> [<args>]
 
 Analyse the .BIOM output from metaclust.map.py 
 
+
 Available commands
     inspect    show available comparison options
-    test       analyse a BIOM file''')
+    test       analyse a BIOM file
+______________________________________________________________________
+''')
         parser.add_argument("command", help="Subcommand to run")
         self.args = parser.parse_args(sys.argv[1:2])
         if not hasattr(self, self.args.command):
@@ -56,16 +61,21 @@ Available commands
     def inspect(self):
         parser = argparse.ArgumentParser(description="",
         usage='''
-######################################################################
-# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
-######################################################################
+______________________________________________________________________
+
+  Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+______________________________________________________________________
+
 Generic command: python3 metaclust.analyse.py inspect -B [biom_file]
 
 Display the avalaible comparisons that are present in the biom-file
 file here
 
+
 Obligatory arguments:
-    -B    Provide the Biom file here ''')
+    -B    Provide the Biom file here 
+______________________________________________________________________
+''')
         parser.add_argument("-B", "--biom_file", help=argparse.SUPPRESS, required=True)
         self.inspect = parser.parse_args(sys.argv[2:])
         #return(self.inspect)
@@ -74,10 +84,13 @@ Obligatory arguments:
         parser = argparse.ArgumentParser(description="", usage ='''
 
 
-######################################################################
-# Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)  #
-######################################################################
-Generic command: python3 metaclust.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
+______________________________________________________________________
+
+Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+______________________________________________________________________
+
+Generic command: python3 metaclust.analyse.py test -B [biom_file] 
+-T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
 
 
 
@@ -94,6 +107,7 @@ Obligatory arguments:
           Example: UC and non-IBD --> UC non-IBD
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
+______________________________________________________________________
 ''')
         parser.add_argument("-B", "--biom_file",
                             help=argparse.SUPPRESS, required=True)
@@ -223,19 +237,19 @@ def main():
     main_args = Arguments()
 
     if main_args.args.command == "inspect":
-        print("########## Extracting options #######################")        
+        print("___________Extracting options________________________")        
         d = extractoptions(main_args.inspect.biom_file)
         pprint(d)
         sys.exit()
 
-    print("########## Loading R Functions ######################")
+    print("___________Loading R Functions_______________________")
     analysebiom(main_args.test.biom_file,\
                 main_args.test.sample_type,\
                 main_args.test.outdir,\
                 main_args.test.metagroup,\
                  main_args.test.groups)
 
-    print("########## Moving result files to outdir ############")
+    print("___________Moving result files to outdir_____________")
     movetodir(main_args.test.outdir, "analyse_results", ".png")
     movetodir(main_args.test.outdir, "analyse_results", ".csv")
     
