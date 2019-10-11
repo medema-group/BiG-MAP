@@ -19,6 +19,7 @@ import sys
 import argparse
 from pathlib import Path
 import json
+import pandas as pd
 
 # Defenitions
 def get_arguments():
@@ -39,12 +40,17 @@ expected raw read count for the clusters in the simulated reads.
 
 
 Obligatory arguments:
-    -C    Command: 'validate' or 'split'
+    -C    Command: 'validate' | 'split' | 'results'
     -R    Provide the simulated reads file
     -J    Json absolute locations file from MODULE 2
     -S    Sam file of bowtie2 predictions
     -F    GCFs of fastaheaders
     -O    Outdir
+
+Options
+    -g    ground truth json file
+    -r    results .csv files
+    -s    fastANI treshold setting
 ______________________________________________________________________
 ''')
     parser.add_argument("-R", "--sim_reads", help=argparse.SUPPRESS, required=True)
@@ -53,6 +59,9 @@ ______________________________________________________________________
     parser.add_argument("-S", "--sam_file", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-F", "--GCFfasta", help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-r", "--results", help=argparse.SUPPRESS, required=False, nargs = "+")
+    parser.add_argument("-g", "--ground_truth", help=argparse.SUPPRESS, required=False)
+    parser.add_argument("-s", "--fastANI_setting", help=argparse.SUPPRESS, required=False)
     return(parser.parse_args())
 
 ######################################################################
@@ -155,14 +164,24 @@ def fastani_validate(GCFheaders, ground_truth):
     ----------
     ret = {fastaheader : read_IDs with fastani filtering}
     """
+
     with open(GCFheaders, "r") as j:
         GCFfasta = json.load(j) # fastani headers
+    """
     for headerkey in ground_truth.keys():
         if headerkey in GCFfasta.keys():
             for sim_header in GCFfasta[headerkey]:
                 if sim_header != headerkey:
                     for read_ID in ground_truth[sim_header]:
                         ground_truth[headerkey].append(read_ID)
+                    #del ground_truth[sim_header]
+    """
+    ret = {}
+    for GCFheaderkey in GCFfasta.keys():
+        ground_truth[GCFheaderkey] = []
+        for sim_header in GCFfasta[GCFheaderkey]:
+            for read_ID in ground_truth[sim_header]:
+                ground_truth[GCFheaderkey].append(read_ID)
     return(ground_truth)
 
 def find_bowtie2_maps(sam_file):
@@ -183,9 +202,9 @@ def find_bowtie2_maps(sam_file):
                 contents = line.split()
                 read_ID = contents[0]
                 fastaheader = contents[2]
-                if "NR" in fastaheader:
-                    NR_index = fastaheader.find("--NR")
-                    fastaheader = fastaheader[:NR_index]
+                #if "NR" in fastaheader:
+                #    NR_index = fastaheader.find("--NR")
+                #    fastaheader = fastaheader[:NR_index]
                 if not fastaheader in ret:
                     ret[fastaheader] = []
                 ret[fastaheader].append(read_ID)
@@ -221,10 +240,8 @@ def validation_metrics(ground_truth, bowtie2_prediction):
             recall = intersection_count/true_count
         except(ZeroDivisionError):
             recall = "0 (ZeroDivision)"
-        if not recall == "0 (ZeroDivision)":
-            metrics[fh] = [true_count, predicted_count, intersection_count, recall, specificity]
-            
-        
+        #if not recall == "0 (ZeroDivision)":
+        metrics[fh] = [true_count, predicted_count, intersection_count, recall, specificity]
     return(metrics)
 
 
@@ -247,6 +264,62 @@ def make_csv(pcd, outdir):
             if not "HousekeepingGene" in fh:
                 w.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
 
+def writejson(dictionary, outdir, outfile_name):
+    """writes results in a dict to json format
+    parameters
+    ----------
+    dictionary
+        dict, dicionary containing some results (here mapping results)
+    outdir
+        string, the path to output directory
+    outfile_name
+        string, name for the outfile 
+    returns
+    ----------
+    outfile = name of the .json outfile
+    """
+    outfile = f"{outdir}{outfile_name}"
+    with open(outfile, "w") as w:
+        w.write(json.dumps(dictionary, indent=4))
+    return(outfile)
+
+######################################################################
+# Functions for result
+######################################################################
+def process_results(csvfile):
+    """Processes the csv results files into summary
+    """
+    avg_recall = 0
+    avg_precision = 0
+    fastani_t = ".".join(csvfile.split(".")[0:2])
+    bowtie2_s = csvfile.split(".")[2]
+    with open(csvfile, "r") as f:
+        for idx, line in enumerate(f):
+            if idx > 0:
+                line = line.strip()
+                recall = 0 if line.split(",")[4] == "0 (ZeroDivision)" else line.split(",")[4]
+                precision = 0 if line.split(",")[5] == "0 (ZeroDivision)" else line.split(",")[5]
+                avg_recall += float(recall)
+                avg_precision += float(precision)
+        avg_recall = avg_recall/(idx+1)
+        avg_precision = avg_precision/(idx+1)
+    return([bowtie2_s, fastani_t, avg_recall, avg_precision])
+
+def makegradienttable(dataframe, outdir):
+    """Makes a gradient table for all the settings
+    parameters
+    ----------
+    dataframe
+        pandas dataframe
+    outdir
+        output directory
+    returns
+    ----------
+    tablepng = .png of table, filename
+    """
+    dataframe.style.background_gradient(cmap=blues)
+    pass
+# https://stackoverflow.com/questions/12286607/making-heatmap-from-pandas-dataframe
 
 
 def main():
@@ -255,18 +328,51 @@ def main():
     args = get_arguments()
 
     if args.command == "validate":
-        print("__________Finding ground truth__________")
-        ground_truth = find_ground_truth(args.sim_reads, args.json_locs)
+        print("__________Finding ground truth")
+        if os.path.exists(f"{args.ground_truth}.{args.fastANI_setting}"):
+            print(f"__________opening:{args.ground_truth}.{args.fastANI_setting}")
+            with open(f"{args.ground_truth}.{args.fastANI_setting}", "r") as j:
+                ground_truth = json.load(j) # locations
+        else:
+            ground_truth = find_ground_truth(args.sim_reads, args.json_locs)
+            writejson(ground_truth, args.outdir, f"ground_truth.{args.fastANI_setting}")
         ground_truth = fastani_validate(args.GCFfasta, ground_truth)
-        print("__________Finding bowtie2 prediction__________")
+
+        print("__________Finding bowtie2 prediction")
         bowtie2_mapped_truth = find_bowtie2_maps(args.sam_file)
-        print("__________Calculating validation metrics__________")
+
+        print("__________Calculating validation metrics")
         metrics = validation_metrics(ground_truth, bowtie2_mapped_truth)
         make_csv(metrics, args.outdir)
-        print("__________Finished calculating__________")
+        print("__________Finished calculating")
 
     if args.command == "split":
         split_paired_file(args.sim_reads)
+
+    if args.command == "results":
+        summary = []
+        for csvf in args.results:
+            s = process_results(csvf)
+            summary.append(s)
+        df = pd.DataFrame(summary)
+        df.columns = ["bowtie_setting", "fastANI_setting", "recall", "precision"]
+        df_recall = df[['bowtie_setting', 'fastANI_setting', 'recall']]
+        df_precision = df[['bowtie_setting', 'fastANI_setting', 'precision']]
+        df_recall = pd.pivot_table(df_recall, values = 'recall', index = ['bowtie_setting'], columns = 'fastANI_setting')
+        df_precision = pd.pivot_table(df_precision, values = 'precision', index = ['bowtie_setting'], columns = 'fastANI_setting')
+
+        df_recall.to_csv(f"{args.outdir}recall.csv")
+        df_precision.to_csv(f"{args.outdir}precision.csv")
+
+        print("__________RECALL__________")
+        print(df_recall)
+        print("__________PRECISION_______")
+        print(df_precision)
+        
+        #sns.heatmap(df_recall, annot=True, fmt=".1f")
+        #plt.show()
+        #makegradienttable(df_recall, args.outdir)
+        pass
     
 if __name__ == "__main__":
     main()

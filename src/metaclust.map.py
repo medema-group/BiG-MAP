@@ -71,8 +71,11 @@ Options:
           be in the same format as the example metadata
     -f    Input files are in fasta format (.fna, .fa, .fasta): True/False. 
           Default = False.
-    -s    Bowtie2 setting: very-fast-local, fast-local, sensitive-local
-          , very-sensitive-local. Default = sensitive-local
+    -s    Bowtie2 setting: 
+          END-TO-END mode: very-fast, fast, sensitive, very-sensitive
+          LOCAL mode: very-fast-local, fast-local, sensitive-local, 
+                      very-sensitive-local
+    -t    Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
 
 ''')
@@ -88,39 +91,8 @@ ______________________________________________________________________
                          type=str, required = False, default=False)
     parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
                          type=str, required = False, default="sensitive-local")
-
-
-    """
-    parser.add_argument( "-ct", "--coverage_treshold", help="Output\
-    data with a coverage higher than coverage_threshold. Default =\
-    0.4", default=0.4, type=float, required = False)
-    """
-
-    # Has become obsolete since I will be using Docker for publishing
-    """
-    parser.add_argument( "-p1", "--bowtie2", help="Specify the full\
-    path to the Bowtie2 program location here. default =\
-    /bin/bowtie2. In the case that the program is not installed,\
-    download the binary from:\
-    https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.5.1/. Then\
-    unzip the package and use the path to that folder here.", required
-    = False)
-    parser.add_argument( "-p2", "--samtools", help="Specify the full\
-    path to the samtools program location here. default =\
-    /bin/samtools. In the case that the program is not installed,\
-    download the binary from: http://www.htslib.org/download/. Then\
-    unzip the package and use the path to that folder here.", required
-    = False)
-    parser.add_argument( "-p3", "--bedtools", help="Specify the full\
-    path to the bedtools program location here. default =\
-    /bin/bedtools. In the case that the program is not installed,\
-    download the binary from:\
-    https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.5.1/. Then\
-    unzip the package and use the path to that folder here.", required
-    = False)
-    """
-
-
+    parser.add_argument( "-t", "--threads", help=argparse.SUPPRESS,
+                         type=int, required = False, default=6)
     return(parser.parse_args())
 
 ######################################################################
@@ -149,7 +121,7 @@ def bowtie2_index(reference, outdir):
         # Proper error here, also exit code
     return(index_name)
 
-def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting):
+def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     """Maps the .fq file to the reference (fasta)
     parameters
     ----------
@@ -175,7 +147,7 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting):
             cmd_bowtie2_map = f"bowtie2\
             --{bowtie2_setting}\
             --no-unal\
-            --threads 6 \
+            --threads {threads} \
             {'-f' if fasta else ''} \
             -x {index} \
             -1 {mate1} \
@@ -626,6 +598,11 @@ def computecorecoverage(bedgraph, bedfile):
         for line in f:                                         
             line = line.strip()                                
             cluster, start, end, cov = line.split("\t")
+            #if "--NR" in cluster_NR:
+            #    NR_index = cluster_NR.find("--NR")
+            #    cluster = cluster_NR[:NR_index]
+            #else:
+            #    cluster = cluster_NR
             if not cluster in nocov: # make entry
                 nocov[cluster] = 0
             if float(cov) == 0: # enter no coverage values
@@ -743,9 +720,9 @@ def main():
     6) cleaning output directory
     """
     args = get_arguments()
-    print("_________Fastq-files_________________________________")
+    print("__________Fastq-files_________________________________")
     print("\n".join(args.fastq1))
-    print("_____________________________________________________")
+    print("______________________________________________________")
     print("\n".join(args.fastq2))
 
     results = {} #Will be filled with TPM,RPKM,coverage for each sample
@@ -761,7 +738,7 @@ def main():
     # Whole cluster calculation
     ##############################
     for m1, m2 in zip(args.fastq1, args.fastq2):
-        s = bowtie2_map( args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting)
+        s = bowtie2_map( args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting, args.threads)
         b = samtobam(s, args.outdir)
         sortb = sortbam(b, args.outdir)
         indexbam(sortb, args.outdir)

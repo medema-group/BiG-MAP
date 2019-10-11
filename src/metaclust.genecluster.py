@@ -1,4 +1,3 @@
-
 #! usr/bin/env python3
 
 """
@@ -78,6 +77,9 @@ Options:
     -f   Specify here the number of genes that are flanking the core
          genes of the gene cluster. 0 --> only the core, n --> n
          genes included that flank the core. defualt = 0
+    -g   Output whole genome fasta files for the fastANI filtered gene 
+         clusters as well. This uses more disk space in the output 
+         directory. 'True' | 'False'. Default = False
 ______________________________________________________________________
 ''')
     
@@ -87,6 +89,8 @@ ______________________________________________________________________
                          required = False, default=0.9, type=float)
     parser.add_argument( "-f", "--flank_genes",
                          help=argparse.SUPPRESS, required=False, type=int, default=0)
+    parser.add_argument( "-g", "--genomefiles",
+                         help=argparse.SUPPRESS, required=False, type=bool, default=False)
     return(parser.parse_args())
 
 
@@ -189,7 +193,10 @@ def parsegbkcluster(infile, nflank):
         if nflank == 0:
             core_relative_locs = [record.features[i].location for i in core_index]
         else:
-            core_region = CDS_index[CDS_index.index(min(core_index))-nflank:CDS_index.index(max(core_index))+nflank+1]
+            if CDS_index.index(min(core_index)) - nflank >= 0:
+                core_region = CDS_index[CDS_index.index(min(core_index))-nflank:CDS_index.index(max(core_index))+nflank+1]
+            else:
+                core_region = CDS_index[0:CDS_index.index(max(core_index))+nflank+1]
             core_relative_locs = [record.features[i].location for i in core_region]
         
         # Parsing the DNA sequence
@@ -225,7 +232,7 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     """
     regionno = infile.split("/")[-1].split(".")[-2]
     orgID =  infile.split("/")[-1].split(".")[0]
-    orgID = orgID[5:] if 'PROT' in orgID else orgID
+    orgID = orgID[5:] if 'PROT' in orgID else orgID # For housekeeping orgIDs
     Outfile = f"{outdir}{cluster if seqstype=='HousekeepingGene' else seqstype}-{orgID}.{organism}.{regionno}.fasta"
     fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i+80] for i in range(0,len(str(sequences)),80))
@@ -235,21 +242,19 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
             o.write(f"{seq}\n")
     return(Outfile, orgID, fasta_header[1:])
 
-def locs2bedfile(indict, outdir):
+def locs2bedfile(indict, outfile):
     """saves the enzymes dictionary to a bed file format
     parameters
     ----------
     indict
         dictionary, enzyme location dictionary
-    outdir
-        string, the path to output directory
     GCF_dict
         dict, dictionary of the gene cluster families
     returns
     ----------
     None
     """
-    bedfile = f"{outdir}metaclust.enzymes.bed"
+    bedfile = outfile
     with open(bedfile, "w") as w:
         for clust, locs in indict.items():
             for loc in locs:
@@ -351,7 +356,7 @@ def makeGCF(tsim, outdir):
     res_filter = subprocess.check_output(cmd_filter, shell=True)
     # Clustering:
     dsim = {} 
-    infile = "{}fastani.results.filtered".format(outdir)
+    infile = f"{outdir}fastani.results.filtered"
     with open(infile, "r") as f:
         for line in f:
             line = line.strip()
@@ -363,13 +368,13 @@ def makeGCF(tsim, outdir):
                     B = any(x[0] in e for e in list(dsim.values()))
                     if not B:
                         dsim[x[0]] = []
-                        if float(x[2]) > tsim:
+                        if float(x[2]) >= tsim:
                             dsim[x[0]].append(x[1])
                 else:
                     dsim[x[0]] = []
-                    if float(x[2]) > tsim:
+                    if float(x[2]) >= tsim:
                         dsim[x[0]].append(x[1])
-            elif float(x[2]) > tsim:
+            elif float(x[2]) >= tsim:
                 dsim[x[0]].append(x[1])
     return(dsim)
 
@@ -390,14 +395,17 @@ def writeGCFfasta(sim_dict, outdir, outfile, tocombine = "DNA"):
     infiles = sim_dict.keys()
     outfile = f"{outdir}{outfile}"
     with open(outfile, "w") as fout:
-        for fname in infiles:
-            n_repr = len(sim_dict[fname])
-            fname = fname.replace("PROT", tocombine)
+        for fkey in infiles:
+            n_repr = len(sim_dict[fkey])
+            fname = fkey.replace("PROT", tocombine)
             with open(fname, "r") as f:
                 for line in f:
                     if line.startswith(">"):
                         line = line.strip()
-                        fout.write(f"{line}--NR={n_repr}\n")
+                        if n_repr < 1:
+                            fout.write(f"{line}--NR=1\n")
+                        else:
+                            fout.write(f"{line}--NR={n_repr}\n")
                     else:
                         fout.write(line)
     return(outfile)
@@ -408,10 +416,6 @@ def makefastaheadersim(sim_dict):
     ----------
     sim_dict
         dict, similarity dictionary for GCs
-    outdir
-        string, the path to output directory        
-    outfile
-        string, name of the outfile
     returns
     ----------
     ret = {fastaheader: [fastaheaders that are similar]}
@@ -420,12 +424,13 @@ def makefastaheadersim(sim_dict):
     infiles = sim_dict.keys()
     for fname in infiles:
         sim_fnames = sim_dict[fname]
+        n_repr = len(sim_fnames)
         fname = fname.replace("PROT", "DNA")
         with open(fname, "r") as f:
             for line in f:
                 line = line.strip()
                 if line.startswith(">"):
-                    fastaheader = line[1:] # stripping '>'
+                    fastaheader = f"{line[1:]}--NR={1 if n_repr < 1 else n_repr}" # stripping '>'
                     ret[fastaheader] = []
         for sf in sim_fnames:
             sf = sf.replace("PROT", "DNA")
@@ -454,6 +459,25 @@ def writejson(dictionary, outdir, outfile_name):
     with open(outfile, "w") as w:
         w.write(json.dumps(dictionary, indent=4))
 
+
+def applyfiltering(enzyme_locs, fastasimdict):
+    """Corrects the enzyme locs for fastani filtering
+    """
+    ret = {}
+    for cluster_NR in fastasimdict.keys():
+        NR_index = cluster_NR.find("--NR")
+        cluster = cluster_NR[:NR_index]
+        if cluster == "gb|QRHI01000014|DNA--Entryname=D-R_unassigned_test--OS=Fusobacterium_mortiferum_strain_AM25-18LB--SMASHregion=region001--NR=2":
+            print(enzyme_locs[cluster])
+            print("________________________________________________________________________________")
+            ret[cluster_NR] = enzyme_locs[cluster]
+            print(ret)
+            sys.exit()
+        ret[cluster_NR] = enzyme_locs[cluster]
+    return(ret)
+        
+        
+    
 ######################################################################
 # Writing and purging files
 ######################################################################
@@ -610,7 +634,7 @@ def getgenefromgbk(gbkfile, location): # change to work with locations
     start = int(start)
     end = location.split(":")[1].split("]")[0]
     end = end.replace(">","") # rare occurence in feature.location
-    end = end.replace(">","") # rare occurence in feature.location
+    end = end.replace("<","") # rare occurence in feature.location
     end = int(end)
     sign = 1 if "(+)" in location else 0
     sign = -1 if "(-)" in location else sign
@@ -651,6 +675,7 @@ def main():
     GC_enzyme_locs = {} # storing the core + flanking genes locations
     genomedict = {} # will be used to extract housekeeping genes
     prot_fasta_files = [] # will be used as fastANI input
+    DNA_fasta_files = [] # will be used as fastANI input
     absolute_locs = {} # VALIDATION
     for d in args.indir:
         for f in retrieveclusterfiles(d):
@@ -660,12 +685,13 @@ def main():
             prot_file, orgID, fasta_header = writefasta(AAseq, "PROT", GC, organism, f, args.outdir)
             dna_file, orgID, fasta_header_DNA = writefasta(DNAseq, "DNA", GC, organism, f, args.outdir)
             prot_fasta_files.append(prot_file)
+            DNA_fasta_files.append(dna_file)
             # remembering the whole genome gbk files
             genomegbk = getgenomegbk(f)
             genomedict[orgID] = genomegbk
             # remembering the enzymatic genes locations in dictionary
             GC_enzyme_locs[fasta_header_DNA] = core_locs
-            # Remembring the absolute cluster locations:
+            # Remembring the absolute cluster locations for VALIDATION:
             if not orgID in absolute_locs:
                 absolute_locs[orgID] = []
             absolute_locs[orgID].append({fasta_header_DNA: abs_locs})
@@ -673,19 +699,30 @@ def main():
     ##############################
     # fastani: similarity (4,5,6)
     ##############################
-    preparefastANI(prot_fasta_files, args.outdir)
+    preparefastANI(prot_fasta_files, args.outdir) # was prot_fasta_files
     computesimilarity(args.outdir)
-    fastanihistogram(args.outdir)
+    #fastanihistogram(args.outdir)
 
     ##############################
     # LSH buckets clustering (7,8)
     ##############################
     GCFs = makeGCF(args.treshold, args.outdir)
     GCFs_fasta = writeGCFfasta(GCFs, args.outdir, "metaclust.GCFs_DNA_reference.fna")
-    writejson(GCFs, args.outdir, "fastani.GCFs")
-
     fastadict = makefastaheadersim(GCFs)
+    GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict)
+
+    writejson(GCFs, args.outdir, "fastani.fam")
     writejson(fastadict, args.outdir, "fastani.GCFheaders")
+
+    ###
+    # So the problem is that the housekeeping genes are similar in
+    # numbers, and seem to be similar. The main issue is that in the
+    # filterstep of the enzyme locations, some 20 gene clusters end up
+    # missing, strangely enough. Let's find this out after doing the
+    # validation, to not mess up that process.
+    #
+    # Thus, look into the applyfiltering function above.
+    ###
     
     ##############################
     # housekeeping genes (9)
@@ -695,26 +732,27 @@ def main():
     processed = []
     absolute_locs["hgenes"] = [] # VALIDATION
     for fname in GCFs.keys():
-        orgID = fname.split("/")[-1].split(".")[0][5:]
+        orgID = fname.split("/")[-1].split(".")[0][5:] # was [5:] <-- the last one 
         organism = ".".join(fname.split("/")[-1].split(".region")[0].split(".")[1:])
         # find housekeeping genes for org using HMMer
         if organism not in processed: 
-            seqdb = prepareseqdb(genomedict[orgID], args.outdir)
+            seqdb = prepareseqdb(genomedict[orgID], args.outdir) 
             hmmresult = hmmsearch(seqdb, hmmfile, "", args.outdir)
             genelocs = parsehmmoutput(hmmresult)
             for gene, loc in genelocs.items():
                 seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
-                f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir)
+                f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir) # PROT now!!!
                 append_fasta(GCFs_fasta, f)
-                GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
+                GCF_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
                 absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
             print(f"__________DONE: {organism}")
             # Convert genome.gbk --> genome.fasta and store in outdir
-            gbktofasta(genomedict[orgID], f"{args.outdir}{organism}.fasta", args.outdir)
+            if args.genomefiles:
+                gbktofasta(genomedict[orgID], f"{args.outdir}{organism}.fasta", args.outdir)
         processed.append(organism)
 
     # Remembering the enzymatic gene locations
-    bedfile = locs2bedfile(GC_enzyme_locs, args.outdir) 
+    bedfile = locs2bedfile(GCF_enzyme_locs, f"{args.outdir}metaclust.enzymes.bed") 
     writejson(absolute_locs, args.outdir, "absolute_cluster_locs") # VALIDATION
     
     ##############################
