@@ -144,6 +144,12 @@ def find_ground_truth(sim_reads, json_locs):
                             hgene_organism = fh[org_start:org_end]
                             if scaf == scaf_nr and read_organism == hgene_organism:
                                 if read_start >= hgene_start and read_end <= hgene_end:
+                                    """
+                                    print("__________________________________________________")
+                                    print(f"from HG header:{hgene_organism}")
+                                    print(f"from read:{read_organism}")
+                                    print(f"{fh}")
+                                    """
                                     ret[fh].append(read_ID)
                     for d in abs_locs_dict[orgID]:
                         for fh, coords in d.items():
@@ -178,11 +184,15 @@ def fastani_validate(GCFheaders, ground_truth):
     """
     ret = {}
     for GCFheaderkey in GCFfasta.keys():
-        ground_truth[GCFheaderkey] = []
+        ret[GCFheaderkey] = []
         for sim_header in GCFfasta[GCFheaderkey]:
             for read_ID in ground_truth[sim_header]:
-                ground_truth[GCFheaderkey].append(read_ID)
-    return(ground_truth)
+                ret[GCFheaderkey].append(read_ID)
+    for fh, read_ID in ground_truth.items():
+        if "HousekeepingGene" in fh:
+            ret[fh] = read_ID
+            
+    return(ret)
 
 def find_bowtie2_maps(sam_file):
     """Retrieves the bowtie2 prediction from the sam file
@@ -232,6 +242,53 @@ def validation_metrics(ground_truth, bowtie2_prediction):
         true_count = len(set_true_IDs)
         predicted_count = len(set_predicted_IDs)
         intersection_count = len(intersection)
+        # if ground_truth, prediction and intersection is 0, recall and precision are 1
+        if true_count == 0 and predicted_count == 0: # Implies intersection is also 0
+            true_count = 1e-99
+            predicted_count = 1e-99
+            intersection = 1e-99
+        try:    
+            specificity = intersection_count/predicted_count
+        except(ZeroDivisionError):
+            specificity = "0 (ZeroDivision)"
+        try:
+            recall = intersection_count/true_count
+        except(ZeroDivisionError):
+            recall = "0 (ZeroDivision)"
+        #if not recall == "0 (ZeroDivision)":
+        metrics[fh] = [true_count, predicted_count, intersection_count, recall, specificity]
+    return(metrics)
+
+def validation_metrics_v2(ground_truth, bowtie2_prediction):
+    """Calculates the recall and specificity
+    Find list instersection!!
+    parameters
+    ----------
+    ground_truth
+        dict, contains the ground truth as obtained from the sim reads
+    bowtie2_prediction
+        dict, contains the predicted read mappings
+    returns
+    ----------
+    metrics = {fastaheader : [truth, prediction, intersection, recall, precision]}
+    """
+    metrics = {}
+    for fh, true_IDs in ground_truth.items():
+        if fh in bowtie2_prediction.keys():
+            predicted_IDs = bowtie2_prediction[fh]
+        else:
+            predicted_IDs = []
+        
+        set_predicted_IDs = set(predicted_IDs)
+        set_true_IDs = set(true_IDs)
+        intersection = set_predicted_IDs.intersection(set_true_IDs)
+        true_count = len(set_true_IDs)
+        predicted_count = len(set_predicted_IDs)
+        intersection_count = len(intersection)
+        if true_count == 0 and predicted_count == 0: # Implies intersection is also 0
+            true_count = 1e-99
+            predicted_count = 1e-99
+            intersection_count = 1e-99
         try:    
             specificity = intersection_count/predicted_count
         except(ZeroDivisionError):
@@ -257,12 +314,16 @@ def make_csv(pcd, outdir):
     ----------
     None
     """
-    outfile = f"{outdir}metrics.csv"
-    with open(outfile, "w") as w:
-        w.write("gene_cluster, true_count, predicted_count, intersection, recall, precision\n")
+    outfile_genecluster = f"{outdir}genecluster.metrics.csv"
+    outfile_housekeepinggene = f"{outdir}housekeepinggene.metrics.csv"
+    with open(outfile_genecluster, "w") as wg, open(outfile_housekeepinggene, "w") as wh:
+        wg.write("gene_cluster, true_count, predicted_count, intersection, recall, precision\n")
+        wh.write("housekeepinggene, true_count, predicted_count, intersection, recall, precision\n")
         for fh, metrics in pcd.items():
-            if not "HousekeepingGene" in fh:
-                w.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
+            if "House" in fh:
+                wh.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
+            else:
+                wg.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
 
 def writejson(dictionary, outdir, outfile_name):
     """writes results in a dict to json format
@@ -291,8 +352,10 @@ def process_results(csvfile):
     """
     avg_recall = 0
     avg_precision = 0
-    fastani_t = ".".join(csvfile.split(".")[0:2])
-    bowtie2_s = csvfile.split(".")[2]
+    #fastani_t = ".".join(csvfile.split(".")[0:2])
+    #bowtie2_s = csvfile.split(".")[2]
+    fastani_t = csvfile.split(".")[0]
+    bowtie2_s = csvfile.split(".")[1]
     with open(csvfile, "r") as f:
         for idx, line in enumerate(f):
             if idx > 0:
@@ -301,9 +364,40 @@ def process_results(csvfile):
                 precision = 0 if line.split(",")[5] == "0 (ZeroDivision)" else line.split(",")[5]
                 avg_recall += float(recall)
                 avg_precision += float(precision)
-        avg_recall = avg_recall/(idx+1)
-        avg_precision = avg_precision/(idx+1)
+        avg_recall = avg_recall/(idx)
+        avg_precision = avg_precision/(idx)
     return([bowtie2_s, fastani_t, avg_recall, avg_precision])
+
+def makepivottable(sum_list, summary_type, outdir):
+    """Creates a pandas dataframe from summary list
+    parameters
+    ----------
+    sum_list
+        list, [[entry1], [entry2], ...]
+    summary_type
+        string, geneclusters | housekeepinggenes
+    outdir
+        string, the pathname to the output directory
+    returns
+    ----------
+    df_recall = dataframe containing recall values
+    df_precision = dataframe containing precision values
+    """
+    df = pd.DataFrame(sum_list)
+    df.columns = ["bowtie_setting", "fastANI_setting", "recall", "precision"]
+    df_recall = df[['bowtie_setting', 'fastANI_setting', 'recall']]
+    df_precision = df[['bowtie_setting', 'fastANI_setting', 'precision']]
+    df_recall = pd.pivot_table(df_recall, values = 'recall', index = ['bowtie_setting'], columns = 'fastANI_setting')
+    df_precision = pd.pivot_table(df_precision, values = 'precision', index = ['bowtie_setting'], columns = 'fastANI_setting')
+
+    df_recall.to_csv(f"{outdir}recall.{summary_type}.csv")
+    df_precision.to_csv(f"{outdir}precision.{summary_type}.csv")
+        
+    
+    return(df_recall, df_precision)
+    
+    
+
 
 def makegradienttable(dataframe, outdir):
     """Makes a gradient table for all the settings
@@ -340,9 +434,10 @@ def main():
 
         print("__________Finding bowtie2 prediction")
         bowtie2_mapped_truth = find_bowtie2_maps(args.sam_file)
+        writejson(bowtie2_mapped_truth, args.outdir, f"bowtie2_prediction.{args.fastANI_setting}")
 
         print("__________Calculating validation metrics")
-        metrics = validation_metrics(ground_truth, bowtie2_mapped_truth)
+        metrics = validation_metrics_v2(ground_truth, bowtie2_mapped_truth)
         make_csv(metrics, args.outdir)
         print("__________Finished calculating")
 
@@ -350,25 +445,23 @@ def main():
         split_paired_file(args.sim_reads)
 
     if args.command == "results":
-        summary = []
+        summary_geneclusters = []
+        summary_housekeepinggenes = []
         for csvf in args.results:
-            s = process_results(csvf)
-            summary.append(s)
-        df = pd.DataFrame(summary)
-        df.columns = ["bowtie_setting", "fastANI_setting", "recall", "precision"]
-        df_recall = df[['bowtie_setting', 'fastANI_setting', 'recall']]
-        df_precision = df[['bowtie_setting', 'fastANI_setting', 'precision']]
-        df_recall = pd.pivot_table(df_recall, values = 'recall', index = ['bowtie_setting'], columns = 'fastANI_setting')
-        df_precision = pd.pivot_table(df_precision, values = 'precision', index = ['bowtie_setting'], columns = 'fastANI_setting')
-
-        df_recall.to_csv(f"{args.outdir}recall.csv")
-        df_precision.to_csv(f"{args.outdir}precision.csv")
-
-        print("__________RECALL__________")
-        print(df_recall)
-        print("__________PRECISION_______")
-        print(df_precision)
+            if "genecluster" in csvf:
+                s = process_results(csvf)
+                summary_geneclusters.append(s)
+            else:
+                s = process_results(csvf)
+                summary_housekeepinggenes.append(s)
+        df_rg, df_pg = makepivottable(summary_geneclusters, "genecluster", args.outdir)
+        df_rh, df_ph = makepivottable(summary_housekeepinggenes, "housekeepinggene", args.outdir)
         
+        print("__________RECALL__________")
+        print(df_rh)
+        print("__________PRECISION_______")
+        print(df_ph)
+
         #sns.heatmap(df_recall, annot=True, fmt=".1f")
         #plt.show()
         #makegradienttable(df_recall, args.outdir)

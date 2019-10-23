@@ -80,6 +80,7 @@ Options:
     -g   Output whole genome fasta files for the fastANI filtered gene 
          clusters as well. This uses more disk space in the output 
          directory. 'True' | 'False'. Default = False
+    -th  Number of used threads in the fastANI filtering step. Default = 6
 ______________________________________________________________________
 ''')
     
@@ -91,6 +92,8 @@ ______________________________________________________________________
                          help=argparse.SUPPRESS, required=False, type=int, default=0)
     parser.add_argument( "-g", "--genomefiles",
                          help=argparse.SUPPRESS, required=False, type=bool, default=False)
+    parser.add_argument( "-th", "--threads", help=argparse.SUPPRESS,
+                         type=int, required = False, default=6)
     return(parser.parse_args())
 
 
@@ -291,7 +294,7 @@ def preparefastANI(infile_list, outdir):
             wqry.write("{}\n".format(f))
             wref.write("{}\n".format(f))
 
-def computesimilarity(outdir):
+def computesimilarity(outdir, threads):
     """computes the similarity between sequences using fastANI
     parameters
     ----------
@@ -303,7 +306,7 @@ def computesimilarity(outdir):
     ----------
     """
     try:
-        cmd_fastani = f"fastANI --ql {outdir}fastani.query.txt --rl {outdir}fastani.reference.txt --fragLen 30 --minFrag 1 -k 16 -t 4 -o {outdir}fastani.results"
+        cmd_fastani = f"fastANI --ql {outdir}fastani.query.txt --rl {outdir}fastani.reference.txt --fragLen 30 --minFrag 1 -k 16 -t {threads} -o {outdir}fastani.results"
         res_download = subprocess.check_output(cmd_fastani, shell=True)
     except(subprocess.CalledProcessError):
         # Raise error here for error table
@@ -337,7 +340,7 @@ def fastanihistogram(outdir):
 ######################################################################
 # Extracting LSH clusters (buckets) using cut-off
 ######################################################################
-def makeGCF(tsim, outdir):
+def makeGCF(tsim, outdir, dict_to_add = {}):
     """calculates the GCFs based on similarity treshold
     parameters
     ----------
@@ -347,7 +350,7 @@ def makeGCF(tsim, outdir):
         string, the path to output directory        
     returns
     ----------
-    dsim = similarity dictionary parsed from distance list
+    dsim = {fasta file: similar fasta files}
     """
     # Filtering:
     # This could also be done in python during the clustering step
@@ -355,7 +358,7 @@ def makeGCF(tsim, outdir):
     cmd_filter = cmd_filter %(tsim-0.05, outdir, outdir)
     res_filter = subprocess.check_output(cmd_filter, shell=True)
     # Clustering:
-    dsim = {} 
+    dsim = dict_to_add
     infile = f"{outdir}fastani.results.filtered"
     with open(infile, "r") as f:
         for line in f:
@@ -378,7 +381,7 @@ def makeGCF(tsim, outdir):
                 dsim[x[0]].append(x[1])
     return(dsim)
 
-def writeGCFfasta(sim_dict, outdir, outfile, tocombine = "DNA"):
+def writeGCFfasta(sim_dict, outdir, outfile, tocombine = "DNA-"):
     """Writes the GCFs reference fasta file and adds n_repr
     parameters
     ----------
@@ -397,7 +400,9 @@ def writeGCFfasta(sim_dict, outdir, outfile, tocombine = "DNA"):
     with open(outfile, "w") as fout:
         for fkey in infiles:
             n_repr = len(sim_dict[fkey])
-            fname = fkey.replace("PROT", tocombine)
+            fkey_contents = fkey.split("/")
+            fkey_contents[-1] = fkey_contents[-1].replace("PROT-", tocombine)
+            fname = "/".join(fkey_contents)
             with open(fname, "r") as f:
                 for line in f:
                     if line.startswith(">"):
@@ -425,7 +430,11 @@ def makefastaheadersim(sim_dict):
     for fname in infiles:
         sim_fnames = sim_dict[fname]
         n_repr = len(sim_fnames)
-        fname = fname.replace("PROT", "DNA")
+        fkey_contents = fname.split("/")
+        fkey_contents[-1] = fkey_contents[-1].replace("PROT-", "DNA-")
+        fname = "/".join(fkey_contents)
+        #fname = fkey.replace("PROT-", tocombine)
+        #fname = fname.replace("PROT", "DNA")
         with open(fname, "r") as f:
             for line in f:
                 line = line.strip()
@@ -433,7 +442,11 @@ def makefastaheadersim(sim_dict):
                     fastaheader = f"{line[1:]}--NR={1 if n_repr < 1 else n_repr}" # stripping '>'
                     ret[fastaheader] = []
         for sf in sim_fnames:
-            sf = sf.replace("PROT", "DNA")
+            fkey_contents = sf.split("/")
+            fkey_contents[-1] = fkey_contents[-1].replace("PROT-", "DNA-")
+            sf = "/".join(fkey_contents)
+
+            #sf = sf.replace("PROT", "DNA")
             with open(sf, "r") as s:
                 for line in s:
                     line = line.strip()
@@ -467,12 +480,14 @@ def applyfiltering(enzyme_locs, fastasimdict):
     for cluster_NR in fastasimdict.keys():
         NR_index = cluster_NR.find("--NR")
         cluster = cluster_NR[:NR_index]
+        """
         if cluster == "gb|QRHI01000014|DNA--Entryname=D-R_unassigned_test--OS=Fusobacterium_mortiferum_strain_AM25-18LB--SMASHregion=region001--NR=2":
             print(enzyme_locs[cluster])
             print("________________________________________________________________________________")
             ret[cluster_NR] = enzyme_locs[cluster]
             print(ret)
             sys.exit()
+        """
         ret[cluster_NR] = enzyme_locs[cluster]
     return(ret)
         
@@ -653,17 +668,6 @@ def getgenefromgbk(gbkfile, location): # change to work with locations
 ######################################################################
 def main():
     """
-    The following steps are performed:
-    1) retrieving the .gbk files from the SMASH folders (both cluster and whole genome filenames)
-    2) parsing the files for dna and AA seqs
-    3) writing to fasta, the AA seqs are required for fastANI
-    4) prepare required input for fastANI
-    5) calculate similarity using fastANI
-    6) generate histogram of results
-    7) extract LSH "buckets" from fastANI result into dictionary
-    8) write GCFs fasta reference
-    9) find housekeeping genes for each organism using HMMer
-    10) clean up the output directory
     """
     args = get_arguments()
 
@@ -697,39 +701,32 @@ def main():
             absolute_locs[orgID].append({fasta_header_DNA: abs_locs})
 
     ##############################
-    # fastani: similarity (4,5,6)
+    # fastani: similarity
     ##############################
-    preparefastANI(prot_fasta_files, args.outdir) # was prot_fasta_files
-    computesimilarity(args.outdir)
+    preparefastANI(prot_fasta_files, args.outdir)
+    computesimilarity(args.outdir, args.threads)
     #fastanihistogram(args.outdir)
 
     ##############################
-    # LSH buckets clustering (7,8)
+    # LSH buckets clustering
     ##############################
     GCFs = makeGCF(args.treshold, args.outdir)
-    GCFs_fasta = writeGCFfasta(GCFs, args.outdir, "metaclust.GCFs_DNA_reference.fna")
-    fastadict = makefastaheadersim(GCFs)
-    GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict)
+    #fastadict = makefastaheadersim(GCFs)
+    #GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict)
+    # Writing results
+    #writejson(GCFs, args.outdir, "fastani.fam")
+    #writejson(fastadict, args.outdir, "fastani.GCFheaders")
+    
 
-    writejson(GCFs, args.outdir, "fastani.fam")
-    writejson(fastadict, args.outdir, "fastani.GCFheaders")
 
-    ###
-    # So the problem is that the housekeeping genes are similar in
-    # numbers, and seem to be similar. The main issue is that in the
-    # filterstep of the enzyme locations, some 20 gene clusters end up
-    # missing, strangely enough. Let's find this out after doing the
-    # validation, to not mess up that process.
-    #
-    # Thus, look into the applyfiltering function above.
-    ###
+    print("___________Adding housekeeping genes________________")
     
     ##############################
-    # housekeeping genes (9)
+    # housekeeping genes: Obtainging
     ##############################
-    print("___________Adding housekeeping genes________________")
     hmmfile = Path(f"{sys.path[0]}") / "pfamdomains/combined.hmm"
     processed = []
+    HG_fasta_files = []
     absolute_locs["hgenes"] = [] # VALIDATION
     for fname in GCFs.keys():
         orgID = fname.split("/")[-1].split(".")[0][5:] # was [5:] <-- the last one 
@@ -741,9 +738,10 @@ def main():
             genelocs = parsehmmoutput(hmmresult)
             for gene, loc in genelocs.items():
                 seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
-                f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir) # PROT now!!!
-                append_fasta(GCFs_fasta, f)
-                GCF_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
+                f, ID, housekeepingheader = writefasta(seq, "HousekeepingGene", gene, organism, fname, args.outdir)
+                HG_fasta_files.append(f)
+                #append_fasta(GCFs_fasta, f)
+                GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0,len(seq))]
                 absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
             print(f"__________DONE: {organism}")
             # Convert genome.gbk --> genome.fasta and store in outdir
@@ -751,7 +749,22 @@ def main():
                 gbktofasta(genomedict[orgID], f"{args.outdir}{organism}.fasta", args.outdir)
         processed.append(organism)
 
+    ##############################
+    # housekeeping genes: Redundancy filtering
+    ##############################
+    preparefastANI(HG_fasta_files, args.outdir)
+    computesimilarity(args.outdir, args.threads)
+    
+    GCFs_ALL = makeGCF(0.7, args.outdir, GCFs)
+    fastadict_ALL = makefastaheadersim(GCFs_ALL)
+
+    # Writing results to outdir
+    writejson(GCFs_ALL, args.outdir, "fastani.fam")
+    writejson(fastadict_ALL, args.outdir, "fastani.GCFheaders")
+    GCFs_fasta = writeGCFfasta(GCFs_ALL, args.outdir, "metaclust.GCFs_DNA_reference.fna")
+
     # Remembering the enzymatic gene locations
+    GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
     bedfile = locs2bedfile(GCF_enzyme_locs, f"{args.outdir}metaclust.enzymes.bed") 
     writejson(absolute_locs, args.outdir, "absolute_cluster_locs") # VALIDATION
     
@@ -765,3 +778,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    
