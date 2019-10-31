@@ -825,7 +825,7 @@ def main():
     # Cleaning output dir (10)
     ##############################    
     purge(args.outdir, ".fasta")
-    #purge(args.outdir, ".txt")
+    purge(args.outdir, ".txt")
     purge(args.outdir, ".faa")
 
 

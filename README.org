@@ -68,58 +68,29 @@ SRR5983271
 SRR5983275
 ...
 #+END_EXAMPLE
-| nr | Source                                     | Explanation                                                                                                                                                             | Environment             | Accesssion   |
-|----+--------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------+--------------|
-|  0 | Choose your own data                       |                                                                                                                                                                         |                         |              |
-|  1 | Schirmer et al.                            | contains 78 high-quality paired metagenomes and metatranscriptomes                                                                                                      | Gut microbiome          | PRJNA389280  |
-|  2 | Franzosa et al.                            | 8 samples (in triplicate) of metagenomic and metatranscriptomic data                                                                                                    | Gut and oral microbiome | PRJNA188481  |
-|  3 | Greenblum, Turnbaugh & Borenstein36        | Illumina-derived shotgun metagenomic data from 124 unrelated Danish and Spanish persons labelled with BMI and IBD data                                                  | Gut microbiome          | ERA000116    |
-|  4 | Abu-Ali et al.                             | It reports a large-scale investigation of 372 human faecal metatranscriptomes and 929 metagenomes from a subset of 308 men in the Health Professionals Follow-Up Study. | Gut microbiome          | PRJNA354235  |
-|  5 | University Medical Centre Groningen (UMCG) | Metagenomic data of 45 IBD and 20 non-IBD Dutch participants. Could be useful for validation of our results.                                                            | Gut microbiome          | upon request |
 
 ** S-MAP.genecluster.py
-For obtaining the correct metabolic gene cluster sequences, either
-antiSMASH or gutSMASH should be run in advance on interesting
-reference genomes. This module will consequently take those results
-and convert them into a redundancy filtered reference fasta
-file. fastANI is used to find gene clusters that are too similar in
-function, and these are then filtered out based on a similarity
-cut-off of 0.9. The similarity is calculated for the protein sequences
-only, since these sequences are more relevant for the end-function of
-the gene cluster and are expected to be more similar. In addition,
-housekeeping genes are included to be able to compare the results to
-expression and abundance levels that are known /a priori/. A typical
-workflow looks like this:
+The main purpose of this script is to compute GCFs and HGFs using
+sequence similarity as sole metric. For GCF computation, protein
+sequences are used while for the HGF computation DNA sequences are
+used. FastANI is implemented to compute the GCFs and HGFs. The general
+usage is:
 #+BEGIN_EXAMPLE
-______________________________________________________________________
-
-  S-MAP genecluster: creates a redundancy filtered reference fna
-______________________________________________________________________
-
-Generic command: python3 S-MAP.genecluster.py [Options]*
--D [input dir(s)] -O [output dir]
-
-Create a redundancy filtered fasta reference file from multiple
-anti/gutSMASH outputs.
-
-Obligatory arguments:
-    -D   Specify the path to the directory containing the gut- or
-         antiSMASH outputs here. This could be a singular directory,
-         or a space seperated list of directories.
-    -O   Put path to the folder where the fastANI filtered gene cluster
-         files should be located here. The folder should be an
-         existing folder. Default = current folder (.)
-
-Options:
-    -t   Fraction between 0 and 1; the similarity treshold that
-         determines when the protein sequences of the gene clusters
-         can be considered similar (>0.80 is assumed to have the same
-         function). Default = 0.9.
-    -f   Specify here the number of genes that are flanking the core
-         genes of the gene cluster. 0 --> only the core, n --> n
-         genes included that flank the core. defualt = 0
-______________________________________________________________________
+python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
+In the example of a gutSMASH run on 1520 (draft) reference genomes that
+are present in the gut, with a fastANI treshold of 0.7 for both the
+GCFs and HGFs, no flanking genes of the core, no genome fasta file
+outputs and 6 process cores:
+#+BEGIN_EXAMPLE
+python3 BiG-MAP.family.py -tg 0.7 -th 0.7 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -O /mnt/scratch/usr001/results/
+
+This yields:
+BiG-MAP.GCF_HGF.bed
+BiG-MAP.GCF_HGF.fna
+BiG-MAP.GCF_HGF.json
+#+END_EXAMPLE
+
 ** S-MAP.map.py
 This module is designed to map the metagenomic and/or
 metatranscriptomic samples to the reference that is created using
