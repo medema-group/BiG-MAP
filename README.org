@@ -1,7 +1,7 @@
 * The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 #+CAPTION: The pipelene of all the modules combined
-#+NAME: metAbEx Pipeline 
-https://github.com/KoenvdBerg/BiG-MAP/blob/master/FINAL_pipeline_V3.png
+#+NAME: BiG-MAP.fig_1
+[[https://github.com/KoenvdBerg/BiG-MAP/blob/master/FINAL_pipeline_V3.png]]
 
 The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 is currently in development. For the analysis of bacterial metagenomic
