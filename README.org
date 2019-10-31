@@ -1,7 +1,7 @@
 * The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 #+CAPTION: The pipelene of all the modules combined
 #+NAME: metAbEx Pipeline 
-[[https://github.com/KoenvdBerg/BiG-MAP/FINAL_pipeline_V3.png]]
+https://github.com/KoenvdBerg/BiG-MAP/blob/master/FINAL_pipeline_V3.png
 
 The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 is currently in development. For the analysis of bacterial metagenomic
@@ -45,7 +45,7 @@ A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
 The four steps are described below, and for each an example is
 provided. 
 
-** 1. S-MAP.download.py
+** 1) S-MAP.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
