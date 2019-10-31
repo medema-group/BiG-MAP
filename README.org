@@ -1,4 +1,4 @@
-* The SMASH Metabolic Abundance Profiler (BiG-MAP)
+* The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 #+CAPTION: The pipelene of all the modules combined
 #+NAME: metAbEx Pipeline 
 [[https://github.com/KoenvdBerg/BiG-MAP/FINAL_pipeline_V3.png]]
@@ -44,45 +44,29 @@ A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
    BiG-MAP.analyse.py
 The four steps are described below, and for each an example is
 provided. 
-** S-MAP.download.py
+
+** 1. S-MAP.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
-into /.fastq/ pairs using /fastq-dump/. The typical workflow for
-downloading samples for the online NCBI repository is the following:
+into /.fastq/ pairs using /fastq-dump/. 
 #+BEGIN_EXAMPLE
-______________________________________________________________________
+python3 BiG-MAP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
+#+END_EXAMPLE
+To download the 78 samples from Schirmer et al. (2018), go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA
+run selector]] and run the following command:
+#+BEGIN_EXAMPLE
+python3 BiG-MAP.download.py -A Acc_list.txt -O /mnt/scratch/usr001/fastq/schirmer/
 
-    S-MAP Download: correctly download using fastq-dump program
-______________________________________________________________________
-
-Generic command: python3 S-MAP.download.py [Options]*
--A [accession_list_file] -O [path_to_outdir]
-
-Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
-
-Obligatory arguments:
-    -A    Put the filepath to the accession list file here. This file
-          should consist of one accession on each line only.
-    -O    Put path to the output folder where the results should be
-          deposited. Default = current folder (.)
-______________________________________________________________________
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -n DATANUMBER, --datanumber DATANUMBER
-                        Input the WGS data, as mentioned in the table with
-                        data recommendations (see
-                        https://github.com/KoenvdBerg/MSc_thesis). Input
-                        number here.
-  -p FASTQDUMP, --fastqdump FASTQDUMP
-                        Specify the full path to the fastq-dump program
-                        location here. default = /bin/fastq-dump. In the case
-                        that the program is not installed, download the binary
-                        from: https://ncbi.github.io/sra-tools/fastq-
-                        dump.html. Then unzip the package and use the path to
-                        that folder here.
-______________________________________________________________________
+Acc_list.txt:
+SRR5983273
+SRR5983265
+SRR5983266
+SRR5983268
+SRR5983270
+SRR5983271
+SRR5983275
+...
 #+END_EXAMPLE
 | nr | Source                                     | Explanation                                                                                                                                                             | Environment             | Accesssion   |
 |----+--------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------+--------------|
