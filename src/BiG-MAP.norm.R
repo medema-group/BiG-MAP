@@ -22,14 +22,14 @@ packages = c("metagenomeSeq","biomformat","ComplexHeatmap","viridisLite", "RColo
 package.check <- lapply(packages, FUN = function(x) {
     #if (!require(x, character.only = TRUE)) {
     #    print("not installed") #install.packages(x, dependencies = TRUE)
-    library(x, character.only = TRUE)
-    #suppressWarnings(suppressMessages(library(x, character.only = TRUE, quietly = T)))
+    #library(x, character.only = TRUE)
+    suppressWarnings(suppressMessages(library(x, character.only = TRUE, quietly = T)))
     #}
 })
 
 ####################################################
 # Functions
-####################################################
+####n################################################
 writestdout <- function(...) cat(sprintf(...), sep='', file=stderr())
 
 CorrectHousegenes <- function(hgenes.df){
@@ -68,10 +68,10 @@ FindHouseGenes <- function(significant_hits, countsdf) {
   countsdf <- data.frame(countsdf)
   hits_IDs <- substr(rownames(significant_hits),
                      0,
-                     regexpr("DNA--", rownames(significant_hits))-1)
-  relevant_hgenes <- countsdf[which(substr(rownames(countsdf), 0, regexpr("DNA--", rownames(significant_hits))-1) %in% hits_IDs),] # HousekeepingGenes
+                     regexpr("GC_DNA--", rownames(significant_hits))-1)
+  relevant_hgenes <- countsdf[which(substr(rownames(countsdf), 0, regexpr("GC_DNA--", rownames(significant_hits))-1) %in% hits_IDs),] # HousekeepingGenes
   relevant_hgenes <- relevant_hgenes %>%
-    filter(str_detect(relevant_hgenes$rowname, "HousekeepingGene")) # Housekeeping genes later
+    filter(str_detect(relevant_hgenes$rowname, "HG_DNA")) # Housekeeping genes later
   rownames(relevant_hgenes) <- relevant_hgenes$rowname
   relevant_hgenes$rowname <- NULL
 
@@ -84,7 +84,7 @@ FindHouseGenes <- function(significant_hits, countsdf) {
                     regexpr("--OS",rownames(relevant_hgenes))-1)
     ID <- substr(rownames(relevant_hgenes),
                  0,
-                 regexpr("HousekeepingGene", rownames(relevant_hgenes))-1) # later HousekeepingGene
+                 regexpr("HG_DNA", rownames(relevant_hgenes))-1) # later HousekeepingGene
     h.avg <- data.frame(cbind(h.avg, ID, hname))
     h.avg.hits <- reshape(h.avg, timevar = "hname", idvar = "ID", direction = "wide") # Creating a dataframe containing the clusters as rows and the hgene names as columns
     names_significant_hits <- data.frame(rownames(significant_hits))
@@ -105,6 +105,41 @@ FindHouseGenes <- function(significant_hits, countsdf) {
   }
 }
 
+makeExplore <- function(MRobj, meta){
+  # Explores the MRobj
+  # -parameters-
+  # MRobj: MR experiment object from metagenomeSeq
+  # meta: name of the metadata group condition (like DiseaseStatus)
+  # -outputs-
+  # result$data: the counts dataframe
+  # result$meta: the metadata groups
+  # result$cov: core cluster coverage values
+  # results$hgenes: values for the housekeeping genes
+  d1 <- pData(MR_sample)[meta][,1]
+  
+  countsdf <- data.frame(MRcounts(MRobj, norm=T, log=T))
+  countsdf$rowname <- rownames(countsdf)
+  
+  # Filtering coverage values:
+  cov = data.frame(fData(MRobj))
+  covd <- data.frame(sapply(cov, function(x) as.numeric(as.character(x))))
+  rownames(covd) <- rownames(cov)
+  avg_cov <- cbind(rowMeans(covd))
+  
+  # Taking out best covered gene clusters:
+  s <- avg_cov[order(avg_cov[,1], decreasing = T),][1:20]
+  best_covered <- as.matrix(avg_cov[rownames(avg_cov) %in% names(s),])
+  sig_hits <- countsdf[which(rownames(countsdf) %in% rownames(best_covered)),]
+  sig_hits$rowname <- NULL
+  
+  # Finding the relevant housekeeping genes counts:
+  hgenes <- FindHouseGenes(sig_hits, countsdf)
+  hgenes <- CorrectHousegenes(hgenes)
+  
+  result <- list("data"=sig_hits, "meta"=d1, "coverage"=best_covered, "hgenes"=hgenes)
+  return(result)
+}
+  
 makeZIGmodel <- function(MRobj, meta, groups){
   # Makes a fitzig model and find DA genes
   # -parameters-
@@ -216,6 +251,7 @@ makekruskalltest <- function(MRobj, meta, groups, alpha){
   }
 }
 
+
 makecomplexheatmap <- function(test_result, title, samplename){
   # Makes a complex heatmap from test output of makeZIGmodel
   # or makekruskalltest
@@ -225,61 +261,111 @@ makecomplexheatmap <- function(test_result, title, samplename){
   # -output-
   # complex heatmap
   ha = HeatmapAnnotation(Condition=test_result$meta)
-                         #annotation_name_side = "left")
+  #annotation_name_side = "left")
   ha_row = rowAnnotation(lfc=row_anno_barplot(test_result$log2fold),
                          cov=row_anno_points(matrix(test_result$coverage,
                                                     nc = 2),
                                              pch = 16:17,
                                              gp = gpar(col=2:3)))
   cluster.name <- substr(rownames(test_result$data),
-                         regexpr("Entryname=",rownames(test_result$data))+10, 
-                         regexpr("SMASH",rownames(test_result$data))-3)					     
+                         regexpr("Entryname=",rownames(test_result$data))+10,
+                         regexpr("SMASH",rownames(test_result$data))-3)
   ha_row_left = rowAnnotation(row_names=anno_text(cluster.name, location = 1, just = "right"))
   ht_main = Heatmap(test_result$data,
-                    name = samplename, 
+                    name = samplename,
                     column_title = title,
                     #column_km = 2,
-                    #row_km = 3, 
+                    #row_km = 3,
                     #col = colorRamp2(c(0, 15), c("white", "deepskyblue")),
                     col = viridis(9),
-                    top_annotation = ha, 
+                    top_annotation = ha,
                     right_annotation = ha_row,
-		    left_annotation = ha_row_left,
+                    left_annotation = ha_row_left,
                     #row_names_gp = gpar(fontsize = 7),
                     show_column_names = FALSE,
-		    show_row_names = FALSE,
-                    row_title = NULL, 
+                    show_row_names = FALSE,
+                    row_title = NULL,
                     show_row_dend = F,
                     column_order = order(test_result$meta),
                     #row_names_side = "left",
                     row_dend_side = "right",
                     cluster_rows = T)
-  lgd_main = Legend(labels = c(unique(test_result$meta[1]),unique(test_result$meta)[2]), 
+  lgd_main = Legend(labels = c(unique(test_result$meta[1]),unique(test_result$meta)[2]),
                     title = "cov",
                     type = "points",
                     pch = 16:17,
                     legend_gp = gpar(col=2:3))
   if (nrow(test_result$hgenes) > 0) {
-     hg.names <- substr(colnames(test_result$hgene), 7, 100)
-     ha_hg <- HeatmapAnnotation(col_names=anno_text(hg.names, location = 1, just = "right"), 
-                               gp = gpar(fontsize=6)) 			       
+    hg.names <- substr(colnames(test_result$hgene), 7, 100)
+    ha_hg <- HeatmapAnnotation(col_names=anno_text(hg.names, location = 1, just = "right"),
+                               gp = gpar(fontsize=6))
+    
+    ht_house = Heatmap(test_result$hgenes,
+                       name = "hgenes",
+                       show_row_dend = F,
+                       bottom_annotation = ha_hg,
+                       show_column_names = F,
+                       col = magma(9),
+                       column_title = "HGs",
+                       show_row_names = F,
+                       column_names_gp = gpar(fontsize=7),
+                       width = unit(2,"cm"))
+    ht_list = ht_main + ht_house
+    draw(ht_list, main_heatmap=samplename, ht_gap = unit(1, "mm"),  annotation_legend_list=lgd_main)
+  } else {
+    draw(ht_main, main_heatmap=samplename, ht_gap = unit(1, "mm"),  annotation_legend_list=lgd_main)
+  }
+}
 
-     ht_house = Heatmap(test_result$hgenes,
+makeExploreHeatmap <- function(explore_result, title, samplename){
+  # Makes a complex heatmap from test output of makeZIGmodel
+  # or makekruskalltest
+  # -parameters-
+  # test_result: output from tests as input here
+  # title: string, the title of the plot
+  # -output-
+  # complex heatmap
+  ha = HeatmapAnnotation(Group=explore_result$meta) #,col = list(Condition= c("non-IBD" = "coral3", "CD" = "dimgrey",  "UC" = "seagreen3")))
+  ha_row = rowAnnotation(cov=row_anno_points(matrix(explore_result$coverage,
+                                                    nc = 1),
+                                             pch = 16,
+                                             gp = gpar(col=2)))
+  cluster.name <- substr(rownames(explore_result$data),
+                         regexpr("Entryname=",rownames(explore_result$data))+10, 
+                         regexpr("SMASH",rownames(explore_result$data))-3)					     
+  ha_row_left = rowAnnotation(row_names=anno_text(cluster.name, location = 1, just = "right"))
+  ht_main = Heatmap(explore_result$data,
+                    name = samplename, 
+                    column_title = title,
+                    col = viridis(9),
+                    top_annotation = ha, 
+                    right_annotation = ha_row,
+                    left_annotation = ha_row_left,
+                    show_column_names = FALSE,
+                    show_row_names = FALSE,
+                    row_title = NULL, 
+                    show_row_dend = F,
+                    column_order = order(explore_result$meta),
+                    row_dend_side = "right",
+                    cluster_rows = T)
+  hg.names <- substr(colnames(explore_result$hgene), 7, 100)
+  ha_hg <- HeatmapAnnotation(col_names=anno_text(hg.names, location = 1, just = "right"), 
+                             gp = gpar(fontsize=6)) 			       
+  ht_house = Heatmap(explore_result$hgenes,
                      name = "hgenes",
                      show_row_dend = F,
-		     bottom_annotation = ha_hg,
-		     show_column_names = F,
+                     bottom_annotation = ha_hg,
+                     show_column_names = F,
                      col = magma(9),
                      column_title = "HGs",
                      show_row_names = F,
                      column_names_gp = gpar(fontsize=7),
-		     width = unit(2,"cm"))
-     ht_list = ht_main + ht_house
-     draw(ht_list, main_heatmap=samplename, ht_gap = unit(1, "mm"),  annotation_legend_list=lgd_main)
-  } else {
-  draw(ht_main, main_heatmap=samplename, ht_gap = unit(1, "mm"),  annotation_legend_list=lgd_main)
-  }
+                     width = unit(2,"cm"))
+  ht_list = ht_main + ht_house
+  draw(ht_list, main_heatmap=samplename, ht_gap = unit(1, "mm"))
 }
+
+
 
 ####################################################
 # MAIN
@@ -299,15 +385,17 @@ outdir = args[3]
 MT <- args[4]
 group_1 <- args[5]
 group_2 <- args[6]
+explore <- args[7]
 
 # If not using the command_line version, insert your own data above
 # instead of the command line arguments.
-#biom_file <- "gut.metaclust.map.biom" 
+#biom_file <- "metaclust.map.biom" 
 #MT <- "DiseaseStatus"
 #sampletype <- "METAGENOMIC"
 #group_1 <- "CD"
 #group_2 <- "non-IBD"
 #test <- "fitzig"
+#explore <- TRUE
 
 if (sampletype == "METAGENOMIC"){
    sample.name <- "Abundance (DNA)"
@@ -332,6 +420,23 @@ cut_off <- floor(length(colnames(MRcounts(MR_sample, norm=F, log=T)))*0.25)
 MR_sample <- filterData(MR_sample, present = cut_off)
 p <- cumNormStat(MR_sample)
 MR_sample <- cumNorm(MR_sample, p=p)
+
+
+##################################
+# Data exploration
+##################################
+# Make a heatmap that shows the most covered gene clusters (top 20)
+
+if (explore  == "TRUE"){
+  png("Inspect_heatmap.png", width = 1100)
+  explore_result <- makeExplore(MR_sample, "DiseaseStatus")
+  makeExploreHeatmap(explore_result, sprintf("Explore Heatmap: %s", sampletype), sample.name)
+  dev.off()
+  quit()
+} 
+
+
+
 
 ##################################
 # Differential expresssion analysis

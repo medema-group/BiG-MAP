@@ -1,34 +1,49 @@
-* The SMASH Metabolic Abundance Profiler (S-MAP)
-The SMASH Metabolic Abundance Profiler (S-MAP) is currently in
-development. For the analysis of bacterial metagenomic and
-metatranscriptomic samples more and more tools become available. This
-tool is focussed on finding the representation of primary metabolic
-pathways and their related homologs in metagenomic and
-metatranscriptomic samples. These pathways are readily obtained from
-(draft) bacterial genomes using antiSMASH or gutSMASH. To be able to
-process the outputs from these tools into proper abundance and
+* The SMASH Metabolic Abundance Profiler (BiG-MAP)
+#+CAPTION: The pipelene of all the modules combined
+#+NAME: metAbEx Pipeline 
+[[https://github.com/KoenvdBerg/BiG-MAP/FINAL_pipeline_V3.png]]
+
+The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
+is currently in development. For the analysis of bacterial metagenomic
+and metatranscriptomic samples more and more tools become
+available. This tool is focussed on finding the representation of
+primary metabolic pathways and their related homologs in metagenomic
+and metatranscriptomic samples. These pathways are readily obtained
+from (draft) bacterial genomes using antiSMASH or gutSMASH. To be able
+to process the outputs from these tools into proper abundance and
 expressions values, the following programs form the essential part of
-S-MAP:
-- S-MAP.download.py
-- S-MAP.genecluster.py
-- S-MAP.map.py
-- S-MAP.analyse.py
+BiG-MAP:
+- BiG-MAP.download.py
+- BiG-MAP.family.py
+- BiG-MAP.map.py
+- BiG-MAP.analyse.py
 For information on how to implement this program, scroll down to
 *Overview and quickstart*. 
+
 * Installation
-Install S-MAP dependencies using conda. Conda can be installed from
+Install BiG-MAP dependencies using conda. Conda can be installed from
 [[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. 
 #+BEGIN_EXAMPLE
-~$ conda env create -f S-MAP.yml S-MAP
-~$ conda activate S-MAP
+~$ conda env create -f BiG-MAP.yml BiG-MAP
+~$ conda activate BiG-MAP
 #+END_EXAMPLE
-After this all the dependencies are installed. To install S-MAP run:
+After this all the dependencies are installed. To install BiG-MAP run:
 #+BEGIN_EXAMPLE
-~$ git clone https://github.com/KoenvdBerg/S-MAP.git
+~$ git clone https://github.com/KoenvdBerg/BiG-MAP.git
 #+END_EXAMPLE
 
 
-* Overview and quickstart
+* Example Workflow
+A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
+1) Downloading WGS data using BiG-MAP.download.py
+2) Generating gene cluster families (GCFs) and housekeeping gene
+   families (HGFs) using BiG-MAP.family.py
+3) Computing abundance and expression profiles of selected
+   representatives from each GCF and HGF using BiG-MAP.map.py
+4) Analysing the resulting BIOM file for profiles using
+   BiG-MAP.analyse.py
+The four steps are described below, and for each an example is
+provided. 
 ** S-MAP.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the

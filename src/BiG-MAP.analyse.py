@@ -37,12 +37,12 @@ class Arguments(object):
 
 ______________________________________________________________________
 
-   Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+   BiG-MAP analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
 ______________________________________________________________________
 
-generic command: python3 metaclust.analyse.py <command> [<args>]
+generic command: python3 BiG-MAP.analyse.py <command> [<args>]
 
-Analyse the .BIOM output from metaclust.map.py 
+Analyse the .BIOM output from BiG-MAP.map.py 
 
 
 Available commands
@@ -63,10 +63,10 @@ ______________________________________________________________________
         usage='''
 ______________________________________________________________________
 
-  Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+  BiG-MAP analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
 ______________________________________________________________________
 
-Generic command: python3 metaclust.analyse.py inspect -B [biom_file]
+Generic command: python3 BiG-MAP.analyse.py inspect -B [biom_file]
 
 Display the avalaible comparisons that are present in the biom-file
 file here
@@ -74,9 +74,21 @@ file here
 
 Obligatory arguments:
     -B    Provide the Biom file here 
+
+Optional arguments:
+    -e    Explore and create a heatmap of the biom-file. This function
+          filters the values for highest core coverage and outputs a 
+          heatmap. Specify outdir here. Requires -s and -m
+    -s    Sampletype: metagenomic | metatranscriptomic
+    -m    provide the metagroup here. This is the first column in the 
+          inspect output. Examples: DiseaseStatus, Longitude, etc...
+
 ______________________________________________________________________
 ''')
         parser.add_argument("-B", "--biom_file", help=argparse.SUPPRESS, required=True)
+        parser.add_argument("-e", "--explore", help=argparse.SUPPRESS, required=False)
+        parser.add_argument("-s", "--sampletype", help=argparse.SUPPRESS, required=False)
+        parser.add_argument("-m", "--metagroup", help=argparse.SUPPRESS, required=False)
         self.inspect = parser.parse_args(sys.argv[2:])
         #return(self.inspect)
 
@@ -86,10 +98,10 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-Metaclust analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
+BiG-MAP analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
 ______________________________________________________________________
 
-Generic command: python3 metaclust.analyse.py test -B [biom_file] 
+Generic command: python3 BiG-MAP.analyse.py test -B [biom_file] 
 -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
 
 
@@ -166,8 +178,40 @@ def pprint(d, indent=0):
             pretty(value, indent+1)
         else:
             print('\t' * (indent+1) + str(value))
-        print("#####################################################")
+        print("______________________________________________________________________")
 
+
+def makeexploreheatmap(biom_file, sampletype, outdir, MT):
+    """wrapper for R script to analyse biom formats
+    parameters
+    ----------
+    biom_file
+        biom-format, filename of biom input file
+    outdir
+        string, path to output dir
+    MT
+        string, name of the metagroup
+    returns
+    ----------
+    None
+    """
+    # Obtaining directory name
+    abspath = os.path.abspath("BiG-MAP.analyse.py")
+    dname = os.path.dirname(abspath)
+    Rloc = "/mnt/scratch/berg266/programs/R-3.6.1/bin/"
+    s_type = "METAGENOMIC" if "genomic" in sampletype else "METATRANSCRIPTOMIC"
+    try:
+        cmd_R = f"{Rloc}Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' 'xxx' 'xxx' TRUE"
+        res_R = subprocess.check_output(cmd_R, shell=True)
+    except(subprocess.CalledProcessError):
+        print("__________ERROR________________________________________")
+        print(f"An error occured, did you input the correct values? Current values:\nbiom file: {biom_file}\nSampletype: {sampletype} -->{s_type}\nMetagroup: {MT if MT else 'metagroup is not specified, use the inspect function solely without -e tag'}")
+        sys.exit()
+    return()
+
+
+
+        
 ######################################################################
 # Analyse functionality
 ######################################################################
@@ -188,13 +232,13 @@ def analysebiom(biom_file, sampletype, outdir, MT, groups):
     None
     """
     # Obtaining directory name
-    abspath = os.path.abspath("metaclust.genecluster.py")
+    abspath = os.path.abspath("BiG-MAP.analyse.py")
     dname = os.path.dirname(abspath)
     Rloc = "/mnt/scratch/berg266/programs/R-3.6.1/bin/"
     s_type = "METAGENOMIC" if "genomic" in sampletype else "METATRANSCRIPTOMIC"
     try:
         # Reducing file size first using awk
-        cmd_R = f"{Rloc}Rscript {dname}/metaclust.norm.R {biom_file} {s_type} {outdir} '{MT}' '{groups[0]}' '{groups[1]}'"
+        cmd_R = f"{Rloc}Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' '{groups[0]}' '{groups[1]}' FALSE"
         res_R = subprocess.check_output(cmd_R, shell=True)
     except(subprocess.CalledProcessError):
         print("########## ERROR ####################################")
@@ -217,18 +261,20 @@ def movetodir(outdir, dirname, pattern):
     ----------
     None
     """
-    abspath = os.path.abspath("metaclust.genecluster.py")
+    abspath = os.path.abspath("BiG-MAP.analyse.py")
     dname = os.path.dirname(abspath)
     # Make directory
+    """
     try:
         os.mkdir(f"{outdir}{dirname}")
         print(f"Directory {outdir}{dirname} created")
     except(FileExistsError):
         print(f"Directory {outdir}{dirname} already exists")
+    """
     # Move files into new directory
     for f in os.listdir(dname):
         if re.search(pattern, f):
-            shutil.move(os.path.join(dname,f), os.path.join(outdir, dirname))
+            shutil.move(os.path.join(dname,f), os.path.join(outdir))
 
 ######################################################################
 # MAIN
@@ -237,28 +283,36 @@ def main():
     main_args = Arguments()
 
     if main_args.args.command == "inspect":
-        print("___________Extracting options________________________")        
+        print("__________Extracting options________________________")        
         d = extractoptions(main_args.inspect.biom_file)
         pprint(d)
-        sys.exit()
-
-    print("___________Loading R Functions_______________________")
-    analysebiom(main_args.test.biom_file,\
-                main_args.test.sample_type,\
-                main_args.test.outdir,\
-                main_args.test.metagroup,\
-                 main_args.test.groups)
-
-    print("___________Moving result files to outdir_____________")
-    movetodir(main_args.test.outdir, "analyse_results", ".png")
-    movetodir(main_args.test.outdir, "analyse_results", ".csv")
-    
+        if main_args.inspect.explore and main_args.inspect.metagroup:
+            print("__________Creating Heatmap__________________________")        
+            makeexploreheatmap(main_args.inspect.biom_file, \
+                               main_args.inspect.sampletype, \
+                               main_args.inspect.explore, \
+                               main_args.inspect.metagroup)
+            print("__________Creation Successful_______________________")        
+        else:
+            print(f"Specify the -s and -m tags as well! Current values:\n-s\t{main_args.inspect.sampletype}\n-m\t{main_args.inspect.metagroup}\nThe correct values for the -s and -m tag can be found using only the inspect function without the -e tag.")
 
 
+        print("___________Moving result files to outdir_____________")
+        movetodir(main_args.inspect.explore, "analyse_results", ".png")
 
 
-    #analysebiom(args.biom_file, args.outdir, args.meta, args.group_1, args.group_2)
+    if main_args.args.command == "test":
+        print("__________Loading R Functions_______________________")
+        analysebiom(main_args.test.biom_file,\
+                    main_args.test.sample_type,\
+                    main_args.test.outdir,\
+                    main_args.test.metagroup,\
+                    main_args.test.groups)
+        print("__________Testing Successful________________________")        
 
+        print("___________Moving result files to outdir_____________")
+        movetodir(main_args.test.outdir, "analyse_results", ".png")
+        movetodir(main_args.test.outdir, "analyse_results", ".csv")
     
 if __name__ == "__main__":
     main()

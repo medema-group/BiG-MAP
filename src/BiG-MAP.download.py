@@ -26,10 +26,10 @@ def get_arguments():
 
 ______________________________________________________________________
 
-    Metaclust Download: correctly download using fastq-dump program    
+    BiG-MAP Download: correctly download using fastq-dump program    
 ______________________________________________________________________
 
-Generic command: python3 metaclust.download.py [Options]* 
+Generic command: python3 BiG-MAP.download.py [Options]* 
 -A [accession_list_file] -O [path_to_outdir]
 
 Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
@@ -141,7 +141,8 @@ def convertSRAtofastq(acc, outdir, pathtofastqdump):
     if os.path.exists("{}/{}_pass_1.fastq.gz".format(outdir, acc)):
         print("The .fastq file for {}*.fastq.gz already exists in {}".format(acc, outdir))
     else:
-        cmd = f"{pathtofastqdump if pathtofastqdump else ''}fastq-dump --gzip --skip-technical --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {outdir}/{acc}.sra"
+        cmd = f"{pathtofastqdump if pathtofastqdump else ''}fastq-dump --gzip --skip-technical\
+        --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {outdir}/{acc}.sra"
         res_download = subprocess.check_output(cmd, shell=True)
     return()
         

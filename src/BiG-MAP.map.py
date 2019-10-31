@@ -37,10 +37,10 @@ def get_arguments():
     usage='''
 ______________________________________________________________________
 
-     Metaclust map: maps the paired reads to the predicted MGCs
+     BiG-MAP map: maps the paired reads to the predicted MGCs
 ______________________________________________________________________
 
-Generic command: python3 metaclust.map.py [Options]* -R [reference] 
+Generic command: python3 BiG-MAP.map.py [Options]* -R [reference] 
 -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
@@ -58,15 +58,17 @@ Obligatory arguments:
           can be a space seperated list from the command line.
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
+    -F    Input the by fastANI defined GCFs and HGFs file named:
+          'fastani.GCFheaders.json' here. 
 
 Options:
     -cc   Also calculate the RPKM and coverage values for the core of
           the cluster present in the bedfile. Specify the bedfile
-          here. Bedfiles are outputted by metaclust.genecluster.py
-          automatically
+          here. Bedfiles are outputted by BiG-MAP.genecluster.py
+          automatically and are named: BiG-MAP.GCF_HGF.bed
     -b    Outputs the resulting read counts in biom format (v1.0) as
           well. This will be useful to analyze the results in
-          metaclust.analyse. Therefore, it  is important to include
+          BiG-MAP.analyse. Therefore, it  is important to include
           the metadata here as well: this metagenomical data should
           be in the same format as the example metadata
     -f    Input files are in fasta format (.fna, .fa, .fasta): True/False. 
@@ -75,7 +77,7 @@ Options:
           END-TO-END mode: very-fast, fast, sensitive, very-sensitive
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
                       very-sensitive-local
-    -t    Number of used threads in the bowtie2 mapping step. Default = 6
+    -th   Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
 
 ''')
@@ -83,6 +85,7 @@ ______________________________________________________________________
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=True)
     parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = True)
+    parser.add_argument("-F", "--family", help=argparse.SUPPRESS, required=True)
     parser.add_argument( "-cc", "--corecalculation",
                          help=argparse.SUPPRESS, required = False)
     parser.add_argument( "-b", "--biom_output",
@@ -91,7 +94,7 @@ ______________________________________________________________________
                          type=str, required = False, default=False)
     parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
                          type=str, required = False, default="sensitive-local")
-    parser.add_argument( "-t", "--threads", help=argparse.SUPPRESS,
+    parser.add_argument( "-th", "--threads", help=argparse.SUPPRESS,
                          type=int, required = False, default=6)
     return(parser.parse_args())
 
@@ -141,7 +144,6 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     stem = Path(mate1).stem
     sample = stem.split("_")[0]
     samfile = f"{outdir}{sample}.sam"
-    
     try:
         if not os.path.exists(samfile):
             cmd_bowtie2_map = f"bowtie2\
@@ -152,7 +154,7 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
             -x {index} \
             -1 {mate1} \
             -2 {mate2} \
-            -S {samfile}" # The .sam file will contain only the map results for 1 sample
+            -S {samfile}" #  The .sam file will contain only the map results for 1 sample
             print(f"the following command will be executed by bowtie2:\n\
 _____________________________________________________\n\
 {cmd_bowtie2_map}\n\
@@ -289,7 +291,7 @@ def extractcorefrombam(bam, outdir, bedfile):
     ----------
     bamfile = the name of the .bam file
     """
-    #  samtools view -b -L metaclust.enzymes.bedfile SRR5947807.bam > bedfile.bam
+    #  samtools view -b -L BiG-MAP.enzymes.bedfile SRR5947807.bam > bedfile.bam
     bamstem = Path(bam).stem
     bamfile = f"{outdir}core_{bamstem}.bam"
     if os.path.exists(bedfile):
@@ -374,10 +376,12 @@ def calculateRPKM(countsfile):
                     read_counts[cluster] = float(nreads)
                 cluster_lengths[cluster] = float(length)
                 sum_reads += float(nreads)
+
     RPKM = {}
     for key in read_counts:
         try:
-            RPKM[key] = read_counts[key]/(sum_reads*cluster_lengths[key]) * 1000000000
+            RPKM[key] = read_counts[key]/(sum_reads*cluster_lengths[key]) * 1000000000                    
+                
         except(ZeroDivisionError):
             RPKM[key] = 0
     return(RPKM)
@@ -615,6 +619,33 @@ def computecorecoverage(bedgraph, bedfile):
         total_coverage[key] = perc
     return(total_coverage)
 
+
+
+def familycorrect(c_dict, family):
+    """uses family to change values
+    parameters
+    ----------
+    c_dict
+        dictionary, {clustername:value}
+    family
+        json, {HGF representative: HGF members}
+    """
+    ret = {}
+    with open(family, "r") as j:
+        family = json.load(j)
+    
+    for GC, v in c_dict.items():
+        if "HG_DNA"in GC:
+            for HGF_member in family[GC]:
+                key_NR = GC[GC.index("--NR"):]
+                ret[f"{HGF_member}{key_NR}"] = v
+        else:
+            ret[GC] = v
+    return(ret)
+
+
+
+
 ######################################################################
 # Functions for writing results and cleaning output directory
 ######################################################################
@@ -647,8 +678,8 @@ def export2biom(outdir, core = ""):
     ----------
     biom_file = the created biom-format file (without metadata)
     """    
-    biom_file = f"{outdir}metaclust.map{core}.biom"
-    cmd_export2biom = f"biom convert -i {outdir}metaclust.map.results.{core}RPKM_filtered.txt -o {biom_file} --table-type='Pathway table' --to-json"
+    biom_file = f"{outdir}BiG-MAP.map{core}.biom"
+    cmd_export2biom = f"biom convert -i {outdir}BiG-MAP.map.results.{core}RPKM_filtered.txt -o {biom_file} --table-type='Pathway table' --to-json"
     res_export = subprocess.check_output(cmd_export2biom, shell=True)
     return(biom_file)
 
@@ -658,7 +689,7 @@ def decoratebiom(biom_file, outdir, metadata, core = ""):
     cmd_sample = f"biom add-metadata -i {biom_file} -o {biom_file} -m {metadata}"
     res_add = subprocess.check_output(cmd_sample, shell=True)
     if core == "core":
-        cmd_feature = f"biom add-metadata --observation-metadata-fp {outdir}metaclust.map.core.coverage.txt -i {biom_file} -o {biom_file}"
+        cmd_feature = f"biom add-metadata --observation-metadata-fp {outdir}BiG-MAP.map.core.coverage.txt -i {biom_file} -o {biom_file}"
         res_feature = subprocess.check_output(cmd_feature, shell=True)
     with open(biom_file, "r") as f:
         biom_dict = json.load(f)
@@ -711,12 +742,13 @@ def movetodir(outdir, dirname, pattern):
 ######################################################################
 def main():
     """
-    The following steps are performed:
+    The following steps are performed for each sample
     1) preparation of mapping (=alignment)
     2) bowtie2 for mapping, counting reads
     3) bedtools for computing coverage for each cluster
-    4) saving all the results in dictionary (=memory)
-    5) writing the results to .json and .csv
+    4) using the fastANI result for adding HGF values
+    5) saving all the results in dictionary (=memory)
+    5) writing the results to .json (=BIOM) and .csv 
     6) cleaning output directory
     """
     args = get_arguments()
@@ -738,7 +770,7 @@ def main():
     # Whole cluster calculation
     ##############################
     for m1, m2 in zip(args.fastq1, args.fastq2):
-        s = bowtie2_map( args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting, args.threads)
+        s = bowtie2_map(args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting, args.threads)
         b = samtobam(s, args.outdir)
         sortb = sortbam(b, args.outdir)
         indexbam(sortb, args.outdir)
@@ -753,6 +785,12 @@ def main():
         bedtools_gfile = preparebedtools(args.outdir, args.reference)
         bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
         coverage = computetotalcoverage(bedgraph)
+
+        # GCF and HGF consideration:
+        TPM = familycorrect(TPM, args.family)
+        RPKM = familycorrect(RPKM, args.family)
+        raw = familycorrect(raw, args.family)
+        coverage = familycorrect(coverage, args.family)
 
         ##############################
         # saving results in one dictionary
@@ -777,11 +815,16 @@ def main():
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
             core_coverage = computecorecoverage(core_bedgraph, args.corecalculation)
+            # GCF and HGF consideration:
+            core_TPM = familycorrect(core_TPM, args.family)
+            core_RPKM = familycorrect(core_RPKM, args.family)
+            core_raw = familycorrect(core_raw, args.family)
+            core_coverage = familycorrect(core_coverage, args.family)
             #core_coverage = computetotalcoverage(core_bedgraph)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRAW"] = [core_raw[k] for k in core_RPKM.keys()]
-            results[f"{sample}.corecov"] = [core_coverage[k] if "DNA--" in k else 0 for k in core_RPKM.keys()]
+            results[f"{sample}.corecov"] = [core_coverage[k] if "GC_DNA--" in k else 0 for k in core_RPKM.keys()]
             
 
     ##############################
@@ -790,27 +833,27 @@ def main():
     # writing all the results to csv
     df = pd.DataFrame(results)
     df.set_index("gene_clusters", inplace=True)
-    df.to_csv(f"{args.outdir}metaclust.map.results.ALL.csv")
+    df.to_csv(f"{args.outdir}BiG-MAP.map.results.ALL.csv")
     
     # writing RPKM (core) filtered results
     headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
     df_RPKM = df[headers_RPKM]
     df_RPKM.columns = [h[:-5] for h in headers_RPKM]
-    df_RPKM.to_csv(f"{args.outdir}metaclust.map.results.RPKM_filtered.csv")
-    df_RPKM.to_csv(f"{args.outdir}metaclust.map.results.RPKM_filtered.txt", sep="\t")
+    df_RPKM.to_csv(f"{args.outdir}BiG-MAP.map.results.RPKM_filtered.csv")
+    df_RPKM.to_csv(f"{args.outdir}BiG-MAP.map.results.RPKM_filtered.txt", sep="\t")
 
     headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
     df_coreRPKM = df[headers_coreRPKM]
     df_coreRPKM.columns = [h[:-9] for h in headers_coreRPKM]
-    df_coreRPKM.to_csv(f"{args.outdir}metaclust.map.results.coreRPKM_filtered.csv")
-    df_coreRPKM.to_csv(f"{args.outdir}metaclust.map.results.coreRPKM_filtered.txt", sep="\t")
+    df_coreRPKM.to_csv(f"{args.outdir}BiG-MAP.map.results.coreRPKM_filtered.csv")
+    df_coreRPKM.to_csv(f"{args.outdir}BiG-MAP.map.results.coreRPKM_filtered.txt", sep="\t")
 
     # Writing row coverages:
     headers_cov = [corekey for corekey in results.keys() if ".corecov" in corekey]
     df_cov = df[headers_cov]
     df_cov.columns = [h[:-8] for h in headers_cov if ".corecov" in h]
     df_cov.index.names = ['#gene_clusters']
-    df_cov.to_csv(f"{args.outdir}metaclust.map.core.coverage.txt", sep="\t")
+    df_cov.to_csv(f"{args.outdir}BiG-MAP.map.core.coverage.txt", sep="\t")
 
     # writing the results to biom format:
     if args.biom_output:
@@ -829,7 +872,7 @@ def main():
     # writing mapping percentages for each sample to csv
     mapping_percentages = parse_perc(args.outdir)
     df_perc = pd.DataFrame(mapping_percentages)
-    df_perc.to_csv(f"{args.outdir}metaclust.percentages.csv")
+    df_perc.to_csv(f"{args.outdir}BiG-MAP.percentages.csv")
 
     ##############################
     # Moving and purging files

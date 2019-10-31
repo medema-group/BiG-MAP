@@ -28,11 +28,11 @@ def get_arguments():
     usage='''
 ____________________________________________________________________
                                                                     
-            Metaclust Validate: validates the pipeline              
+            BiG-MAP Validate: validates the pipeline              
 ____________________________________________________________________
 
 Generic command: 
-python3 metaclust.map.py [Options]* -C [command] -R [sim_reads_file] 
+python3 BiG-MAP.validate.py [Options]* -C [command] -R [sim_reads_file] 
 -J [bed_file]
 
 Validates the pipeline by splitting the sim_reads_file and finding the
@@ -51,6 +51,7 @@ Options
     -g    ground truth json file
     -r    results .csv files
     -s    fastANI treshold setting
+    -n    name of output files
 ______________________________________________________________________
 ''')
     parser.add_argument("-R", "--sim_reads", help=argparse.SUPPRESS, required=True)
@@ -62,6 +63,7 @@ ______________________________________________________________________
     parser.add_argument("-r", "--results", help=argparse.SUPPRESS, required=False, nargs = "+")
     parser.add_argument("-g", "--ground_truth", help=argparse.SUPPRESS, required=False)
     parser.add_argument("-s", "--fastANI_setting", help=argparse.SUPPRESS, required=False)
+    parser.add_argument("-n", "--outname", help=argparse.SUPPRESS, required=False)
     return(parser.parse_args())
 
 ######################################################################
@@ -173,25 +175,13 @@ def fastani_validate(GCFheaders, ground_truth):
 
     with open(GCFheaders, "r") as j:
         GCFfasta = json.load(j) # fastani headers
-    """
-    for headerkey in ground_truth.keys():
-        if headerkey in GCFfasta.keys():
-            for sim_header in GCFfasta[headerkey]:
-                if sim_header != headerkey:
-                    for read_ID in ground_truth[sim_header]:
-                        ground_truth[headerkey].append(read_ID)
-                    #del ground_truth[sim_header]
-    """
+
     ret = {}
     for GCFheaderkey in GCFfasta.keys():
         ret[GCFheaderkey] = []
         for sim_header in GCFfasta[GCFheaderkey]:
             for read_ID in ground_truth[sim_header]:
                 ret[GCFheaderkey].append(read_ID)
-    for fh, read_ID in ground_truth.items():
-        if "HousekeepingGene" in fh:
-            ret[fh] = read_ID
-            
     return(ret)
 
 def find_bowtie2_maps(sam_file):
@@ -320,7 +310,7 @@ def make_csv(pcd, outdir):
         wg.write("gene_cluster, true_count, predicted_count, intersection, recall, precision\n")
         wh.write("housekeepinggene, true_count, predicted_count, intersection, recall, precision\n")
         for fh, metrics in pcd.items():
-            if "House" in fh:
+            if "HG_" in fh:
                 wh.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
             else:
                 wg.write(f"{fh},{metrics[0]},{metrics[1]},{metrics[2]},{metrics[3]},{metrics[4]}\n")
@@ -352,10 +342,12 @@ def process_results(csvfile):
     """
     avg_recall = 0
     avg_precision = 0
-    #fastani_t = ".".join(csvfile.split(".")[0:2])
-    #bowtie2_s = csvfile.split(".")[2]
-    fastani_t = csvfile.split(".")[0]
-    bowtie2_s = csvfile.split(".")[1]
+    csvstem = Path(csvfile).stem
+    fastani_t = ".".join(csvstem.split(".")[0:2])
+    bowtie2_s = csvstem.split(".")[2]
+    
+    #fastani_t = csvstem.split(".")[0]
+    #bowtie2_s = csvstem.split(".")[1]
     with open(csvfile, "r") as f:
         for idx, line in enumerate(f):
             if idx > 0:
@@ -368,7 +360,7 @@ def process_results(csvfile):
         avg_precision = avg_precision/(idx)
     return([bowtie2_s, fastani_t, avg_recall, avg_precision])
 
-def makepivottable(sum_list, summary_type, outdir):
+def makepivottable(sum_list, summary_type, outdir, name):
     """Creates a pandas dataframe from summary list
     parameters
     ----------
@@ -390,9 +382,10 @@ def makepivottable(sum_list, summary_type, outdir):
     df_recall = pd.pivot_table(df_recall, values = 'recall', index = ['bowtie_setting'], columns = 'fastANI_setting')
     df_precision = pd.pivot_table(df_precision, values = 'precision', index = ['bowtie_setting'], columns = 'fastANI_setting')
 
-    df_recall.to_csv(f"{outdir}recall.{summary_type}.csv")
-    df_precision.to_csv(f"{outdir}precision.{summary_type}.csv")
-        
+    df_recall.to_csv(f"{outdir}{name}.recall.{summary_type}.csv")
+    df_precision.to_csv(f"{outdir}{name}.precision.{summary_type}.csv")
+
+    
     
     return(df_recall, df_precision)
     
@@ -431,10 +424,10 @@ def main():
             ground_truth = find_ground_truth(args.sim_reads, args.json_locs)
             writejson(ground_truth, args.outdir, f"ground_truth.{args.fastANI_setting}")
         ground_truth = fastani_validate(args.GCFfasta, ground_truth)
-
+        
         print("__________Finding bowtie2 prediction")
         bowtie2_mapped_truth = find_bowtie2_maps(args.sam_file)
-        writejson(bowtie2_mapped_truth, args.outdir, f"bowtie2_prediction.{args.fastANI_setting}")
+        #writejson(bowtie2_mapped_truth, args.outdir, f"bowtie2_prediction.{args.fastANI_setting}")
 
         print("__________Calculating validation metrics")
         metrics = validation_metrics_v2(ground_truth, bowtie2_mapped_truth)
@@ -454,8 +447,8 @@ def main():
             else:
                 s = process_results(csvf)
                 summary_housekeepinggenes.append(s)
-        df_rg, df_pg = makepivottable(summary_geneclusters, "genecluster", args.outdir)
-        df_rh, df_ph = makepivottable(summary_housekeepinggenes, "housekeepinggene", args.outdir)
+        df_rg, df_pg = makepivottable(summary_geneclusters, "genecluster", args.outdir, args.outname)
+        df_rh, df_ph = makepivottable(summary_housekeepinggenes, "housekeepinggene", args.outdir, args.outname)
         
         print("__________RECALL__________")
         print(df_rh)
