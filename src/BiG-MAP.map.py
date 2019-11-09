@@ -77,6 +77,7 @@ Options:
           END-TO-END mode: very-fast, fast, sensitive, very-sensitive
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
                       very-sensitive-local
+          DEFAULT = fast
     -th   Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
 
@@ -93,7 +94,7 @@ ______________________________________________________________________
     parser.add_argument( "-f", "--fasta", help=argparse.SUPPRESS,
                          type=str, required = False, default=False)
     parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
-                         type=str, required = False, default="sensitive-local")
+                         type=str, required = False, default="fast")
     parser.add_argument( "-th", "--threads", help=argparse.SUPPRESS,
                          type=int, required = False, default=6)
     return(parser.parse_args())

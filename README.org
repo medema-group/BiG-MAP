@@ -22,16 +22,18 @@ For information on how to implement this program, scroll down to
 
 * Installation
 Install BiG-MAP dependencies using conda. Conda can be installed from
-[[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. 
-#+BEGIN_EXAMPLE
-~$ conda env create -f BiG-MAP.yml BiG-MAP
-~$ conda activate BiG-MAP
-#+END_EXAMPLE
-After this all the dependencies are installed. To install BiG-MAP run:
+[[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. First pull the BiG-MAP repository from github:
+
 #+BEGIN_EXAMPLE
 ~$ git clone https://github.com/KoenvdBerg/BiG-MAP.git
 #+END_EXAMPLE
 
+Then install all the dependencies from the BiG-MAP.yml file with:
+#+BEGIN_EXAMPLE
+~$ conda env create -f BiG-MAP.yml BiG-MAP
+~$ conda activate BiG-MAP
+#+END_EXAMPLE
+After this all the dependencies are installed. BiG-MAP can now be used. 
 
 * Example Workflow
 A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
@@ -45,7 +47,7 @@ A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
 The four steps are described below, and for each an example is
 provided. 
 
-** 1) S-MAP.download.py
+** 1) BiG-MAP.download.py
 This script is created to easily download the metagenomic and/or
 metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
@@ -69,13 +71,15 @@ SRR5983275
 ...
 #+END_EXAMPLE
 
-** S-MAP.genecluster.py
+** 2) BiG-MAP.family.py
 The main purpose of this script is to compute GCFs and HGFs using
 sequence similarity as sole metric. For GCF computation, protein
 sequences are used while for the HGF computation DNA sequences are
-used. FastANI is implemented to compute the GCFs and HGFs. The general
-usage is:
+used. FastANI is implemented to compute the GCFs and HGFs. The input
+consists of the output directories of anti- or gutSMASH. Options can
+be investigated by running the /-h/ flag. General usage is:
 #+BEGIN_EXAMPLE
+python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
 In the example of a gutSMASH run on 1520 (draft) reference genomes that
@@ -86,60 +90,41 @@ outputs and 6 process cores:
 python3 BiG-MAP.family.py -tg 0.7 -th 0.7 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -O /mnt/scratch/usr001/results/
 
 This yields:
-BiG-MAP.GCF_HGF.bed
-BiG-MAP.GCF_HGF.fna
-BiG-MAP.GCF_HGF.json
+BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py
+BiG-MAP.GCF_HGF.fna = Reference file to map the WGS reads to
+BiG-MAP.GCF_HGF.json = Dictionary that contains the GCFs and HGFs
 #+END_EXAMPLE
 
-** S-MAP.map.py
-This module is designed to map the metagenomic and/or
-metatranscriptomic samples to the reference that is created using
-module 2. It does this using /bowtie2/. The following will be
-computed: TPM, RPKM, coverage, core coverage. The coverage is
-calculated using /Bedtools/, and the read count values using
-/Samtools/. The following options are included:
+** BiG-MAP.map.py
+This module is designed to align the WGS (paired) reads to the
+reference representatives in each GCF and HGF. It does this using
+/bowtie2/. The following will be computed: RPKM, coverage, core
+coverage. The coverage is calculated using /Bedtools/, and the read
+count values using /Samtools/. The general usage is:
 
 #+BEGIN_EXAMPLE
-______________________________________________________________________
-
-     S-MAP map: maps the paired reads to the predicted MGCs
-______________________________________________________________________
-
-Generic command: python3 S-MAP.map.py [Options]* -R [reference]
--I1 [mate-1s] -I2 [mate-2s] -O [outdir]
-
-Maps the metagenomic/metatranscriptomic reads to the fasta reference
-file and outputs RPKM read counts in .csv and BIOM format
-
-Obligatory arguments:
-    -R    Provide the reference fasta file in .fasta or .fna format
-    -I1   Provide the mate 1s of the paired metagenomic and/or
-          metatranscriptomic samples here. These samples should be
-          provided in fastq-format (.fastq, .fq, .fq.gz). Also, this
-          can be a space seperated list from the command line.
-    -I2   Provide the mate 2s of the paired metagenomic and/or
-          metatranscriptomic samples here. These samples should be
-          provided in fastq-format (.fastq, .fq, .fq.gz). Also, this
-          can be a space seperated list from the command line.
-    -O    Put path to the output folder where the results should be
-          deposited. Default = current folder (.)
-
-Options:
-    -cc   Also calculate the RPKM and coverage values for the core of
-          the cluster present in the bedfile. Specify the bedfile
-          here. Bedfiles are outputted by S-MAP.genecluster.py
-          automatically
-    -b    Outputs the resulting read counts in biom format (v1.0) as
-          well. This will be useful to analyze the results in
-          S-MAP.analyse. Therefore, it  is important to include
-          the metadata here as well: this metagenomical data should
-          be in the same format as the example metadata
-    -f    Input files are in fasta format (.fna, .fa, .fasta): True/False.
-          Default = False.
-    -s    Bowtie2 setting: very-fast-local, fast-local, sensitive-local
-          , very-sensitive-local. Default = sensitive-local
-______________________________________________________________________
+python3 BiG-MAP.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
 #+END_EXAMPLE
+
+To map 10 reads from schirmer et al to the reference representatives
+from the GCFs and HGFs, and also calculate the core metrics, run:
+
+*NOTE*: It is important for downstream analysis to also use the /-b/ flag. 
+#+BEGIN_EXAMPLE
+python3 BiG-MAP.map.py -f False -s fast -th 10 -b /mnt/scratch/usr001/results/schirmer_metadata.txt -cc /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.bed -R /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.fna -I1 /mnt/scratch/usr001/fastq/schirmer/*pass_1* -I2 /mnt/scratch/usr001/fastq/schirmer/*pass_2* -O /mnt/scratch/usr001/results/
+
+the schirmer_metadata.txt is set up as follows (tab-delimited):
+#run.ID         host.ID	        SampleType	     DiseaseStatus
+SRR5947852	C3001C10_MGX	METAGENOMIC	        CD
+SRR5947945	C3001C10_MTX	METATRANSCRIPTOMIC	CD
+SRR5947826	C3001C5_MGX	METAGENOMIC	        CD
+SRR5947900	C3001C5_MTX	METATRANSCRIPTOMIC	CD
+SRR5947876	C3001C9_MGX	METAGENOMIC	        CD
+SRR5947934	C3001C9_MTX	METATRANSCRIPTOMIC	CD
+
+note the '#' to denote the header row!!!
+#+END_EXAMPLE
+
 ** S-MAP.analyse.py
 This program analyses the mapping results using either a zero-inflated
 Gaussian mixture model (fitZIG) or a Kruskall model. 

@@ -99,7 +99,7 @@ FindHouseGenes <- function(significant_hits, countsdf) {
     ret[is.na(result)] <- 0
     rownames(ret) <- rownames(result)
     ret <- ret[match(rownames(significant_hits), rownames(ret)),]
-    return(ret)
+    return(list("avg" = ret, "relevant" = relevant_hgenes))
   } else {
     return(data.frame())
   }
@@ -115,7 +115,7 @@ makeExplore <- function(MRobj, meta){
   # result$meta: the metadata groups
   # result$cov: core cluster coverage values
   # results$hgenes: values for the housekeeping genes
-  d1 <- pData(MR_sample)[meta][,1]
+  d1 <- pData(MRobj)[meta][,1]
   
   countsdf <- data.frame(MRcounts(MRobj, norm=T, log=T))
   countsdf$rowname <- rownames(countsdf)
@@ -124,19 +124,26 @@ makeExplore <- function(MRobj, meta){
   cov = data.frame(fData(MRobj))
   covd <- data.frame(sapply(cov, function(x) as.numeric(as.character(x))))
   rownames(covd) <- rownames(cov)
+  covd <- covd[,which(colnames(covd) %in% colnames(countsdf))]
   avg_cov <- cbind(rowMeans(covd))
   
   # Taking out best covered gene clusters:
   s <- avg_cov[order(avg_cov[,1], decreasing = T),][1:20]
   best_covered <- as.matrix(avg_cov[rownames(avg_cov) %in% names(s),])
+  #best_covered <- best_covered[order(best_covered[,1]),]
   sig_hits <- countsdf[which(rownames(countsdf) %in% rownames(best_covered)),]
+  sig_cov <- covd[which(rownames(covd) %in% rownames(best_covered)),]
+  
+  sig_hits <- sig_hits[order(-best_covered[,1]),]
+  best_covered <- best_covered[order(-best_covered[,1]),]
   sig_hits$rowname <- NULL
   
   # Finding the relevant housekeeping genes counts:
   hgenes <- FindHouseGenes(sig_hits, countsdf)
-  hgenes <- CorrectHousegenes(hgenes)
+  hgenes_avg <- CorrectHousegenes(hgenes$avg)
+  hgenes_relevant <- CorrectHousegenes(hgenes$relevant)
   
-  result <- list("data"=sig_hits, "meta"=d1, "coverage"=best_covered, "hgenes"=hgenes)
+  result <- list("data"=sig_hits, "meta"=d1, "coverage"=best_covered, "sig_cov" = sig_cov, "hgenes"=hgenes_avg, "hgenes_r" = hgenes_relevant, "hgenes_u"=hgenes$avg)
   return(result)
 }
   
@@ -158,18 +165,25 @@ makeZIGmodel <- function(MRobj, meta, groups){
   d1 <- pData(MR_mod)[meta][,1]
   normFactor <- normFactors(MR_mod)
   normFactor <- log2(normFactor/median(normFactor) + 1) # Error value in model
-  mod <- model.matrix(~d1 + normFactor ) # model matrix
+  mod <- model.matrix(~d1 + normFactor) #   model matrix
   fit <- fitZig(obj = MR_mod, mod = mod, useCSSoffset = F)
   
   # Parsing DA genes:
-  MR_coefs <- MRcoefs(fit, by=2, number = 30, group = 3)
-  MR_coefs <- MR_coefs[order(MR_coefs$adjPvalues),]      
+  MR_coefs <- MRcoefs(fit, 
+                      by=2, 
+                      number = 50, 
+                      group = 2, 
+                      adjustMethod = "BH", 
+                      alpha = 0.05,
+                      taxa = fit@taxa)
+  MR_coefs <- MR_coefs[order(MR_coefs$adjPvalues),]
   countsdf <- data.frame(MRcounts(MR_mod, norm=T, log=T))
+  #countsdf <- data.frame(fit@counts)
   countsdf$rowname <- rownames(countsdf)
   
   # Filtering housekeeping genes out:
   filtered_countsdf <- countsdf %>%
-    filter(str_detect(countsdf$rowname, "DNA--"))
+    filter(str_detect(countsdf$rowname, "GC_DNA--"))
   rownames(filtered_countsdf) <- filtered_countsdf$rowname
   filtered_countsdf$rowname <- NULL
   countsmat <- as.matrix(filtered_countsdf)
@@ -179,7 +193,8 @@ makeZIGmodel <- function(MRobj, meta, groups){
   # Finding the relevant housekeeping genes counts:
   if (length(sig_hits)>0){
     hgenes <- FindHouseGenes(sig_hits, countsdf)
-    hgenes <- CorrectHousegenes(hgenes)
+    hgenes_relevant <- CorrectHousegenes(hgenes$relevant)
+    hgenes_avg <- CorrectHousegenes(hgenes$avg)
     # Filtering coverage values:
     cov = data.frame(fData(MR_mod))
     covd <- data.frame(sapply(cov, function(x) as.numeric(as.character(x))))
@@ -187,11 +202,11 @@ makeZIGmodel <- function(MRobj, meta, groups){
     covd = covd[which(rownames(covd) %in% rownames(sig_hits)),]
     covd <- covd[,which(colnames(covd) %in% colnames(sig_hits))]
     avg_cov <- cbind(rowMeans(covd[,which(d1==groups[1])]), rowMeans(covd[,which(d1==groups[2])]))
-    
+   
     # Calculating fold-change:
     logfold <- rowMeans(sig_hits[,which(d1==groups[1])]) - rowMeans(sig_hits[,which(d1==groups[2])])
     
-    result <- list("data"=sig_hits, "meta"=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=MR_coefs, "hgenes"=hgenes)
+    result <- list("data"=sig_hits, "meta"=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=MR_coefs, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg)
     return(result)
   } else {
     return(list("data"=data.frame(), "p-value"=MR_coefs))
@@ -219,21 +234,23 @@ makekruskalltest <- function(MRobj, meta, groups, alpha){
 
   # Filtering housekeeping genes out:
   filtered_countsdf <- countsdf %>%
-    filter(str_detect(countsdf$rowname, "DNA--"))
+    filter(str_detect(countsdf$rowname, "GC_DNA--"))
   rownames(filtered_countsdf) <- filtered_countsdf$rowname
   filtered_countsdf$rowname <- NULL
   countsmat <- data.frame(filtered_countsdf)
 
   # statistical testing:
-  d1 <- as.factor(pData(MR_mod)[meta][,1])
+  d1 <- as.factor(pData(MR_mod)[meta][,1]) # For Kruskall
   p.value <- apply(countsmat, 1, function(x){kruskal.test(x, d1)$p.value})
   adj.pvalue <- p.adjust(p.value, method = "BH")
   sig_hits <- countsmat[which(adj.pvalue<alpha),]
+  d1 <- pData(MR_mod)[meta][,1]
 
   # Finding the relevant housekeeping genes counts:
   if (nrow(sig_hits)>0) {
     hgenes <- FindHouseGenes(sig_hits, countsdf)
-    hgenes <- CorrectHousegenes(hgenes)
+    hgenes_avg <- CorrectHousegenes(hgenes$avg)
+    hgenes_relevant <- CorrectHousegenes(hgenes$relevant)
     # Filtering coverage values:
     cov = data.frame(fData(MR_mod))
     covd <- data.frame(sapply(cov, function(x) as.numeric(as.character(x))))
@@ -244,7 +261,7 @@ makekruskalltest <- function(MRobj, meta, groups, alpha){
 
   # Calculating fold-change:
     logfold <- rowMeans(sig_hits[,which(d1==groups[1])]) - rowMeans(sig_hits[,which(d1==groups[2])])
-    result <- list("data"=sig_hits, meta=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=adj.pvalue, "hgenes"=hgenes)
+    result <- list("data"=sig_hits, meta=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=adj.pvalue, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg)
     return(result)
   } else {
   return(list("data"=data.frame(), "p-value"=adj.pvalue))
@@ -260,17 +277,20 @@ makecomplexheatmap <- function(test_result, title, samplename){
   # title: string, the title of the plot
   # -output-
   # complex heatmap
-  ha = HeatmapAnnotation(Condition=test_result$meta)
-  #annotation_name_side = "left")
+  cluster.name <- substr(rownames(test_result$data),
+                         regexpr("Entryname=",rownames(test_result$data))+10, 
+                         regexpr("SMASH",rownames(test_result$data))-3)					     
+  ha_row_left = rowAnnotation(row_names=anno_text(cluster.name,
+                                                  location = 1,
+                                                  just = "right",
+                                                  gp = gpar(fontsize=12)))
   ha_row = rowAnnotation(lfc=row_anno_barplot(test_result$log2fold),
                          cov=row_anno_points(matrix(test_result$coverage,
                                                     nc = 2),
                                              pch = 16:17,
-                                             gp = gpar(col=2:3)))
-  cluster.name <- substr(rownames(test_result$data),
-                         regexpr("Entryname=",rownames(test_result$data))+10,
-                         regexpr("SMASH",rownames(test_result$data))-3)
-  ha_row_left = rowAnnotation(row_names=anno_text(cluster.name, location = 1, just = "right"))
+                                             gp = gpar(col=2:3),
+                                             width = unit(4, "cm")))
+  ha = HeatmapAnnotation(Condition=test_result$meta)
   ht_main = Heatmap(test_result$data,
                     name = samplename,
                     column_title = title,
@@ -289,6 +309,7 @@ makecomplexheatmap <- function(test_result, title, samplename){
                     column_order = order(test_result$meta),
                     #row_names_side = "left",
                     row_dend_side = "right",
+                    rect_gp = gpar(col="black", lwd=0.2),
                     cluster_rows = T)
   lgd_main = Legend(labels = c(unique(test_result$meta[1]),unique(test_result$meta)[2]),
                     title = "cov",
@@ -296,7 +317,7 @@ makecomplexheatmap <- function(test_result, title, samplename){
                     pch = 16:17,
                     legend_gp = gpar(col=2:3))
   if (nrow(test_result$hgenes) > 0) {
-    hg.names <- substr(colnames(test_result$hgene), 7, 100)
+    hg.names <- substr(colnames(test_result$hgenes), 7, 100)
     ha_hg <- HeatmapAnnotation(col_names=anno_text(hg.names, location = 1, just = "right"),
                                gp = gpar(fontsize=6))
     
@@ -309,6 +330,7 @@ makecomplexheatmap <- function(test_result, title, samplename){
                        column_title = "HGs",
                        show_row_names = F,
                        column_names_gp = gpar(fontsize=7),
+                       rect_gp = gpar(col="black", lwd=0.2),
                        width = unit(2,"cm"))
     ht_list = ht_main + ht_house
     draw(ht_list, main_heatmap=samplename, ht_gap = unit(1, "mm"),  annotation_legend_list=lgd_main)
@@ -326,10 +348,14 @@ makeExploreHeatmap <- function(explore_result, title, samplename){
   # -output-
   # complex heatmap
   ha = HeatmapAnnotation(Group=explore_result$meta) #,col = list(Condition= c("non-IBD" = "coral3", "CD" = "dimgrey",  "UC" = "seagreen3")))
-  ha_row = rowAnnotation(cov=row_anno_points(matrix(explore_result$coverage,
-                                                    nc = 1),
-                                             pch = 16,
-                                             gp = gpar(col=2)))
+  ha_row = rowAnnotation(
+    cov=row_anno_barplot(
+      matrix(explore_result$coverage),
+      bar_width = 1,
+      pch = 16,
+      gp = gpar(col = "white", fill = "#2C728EFF"),
+      border = FALSE,
+      width = unit(4, "cm")))
   cluster.name <- substr(rownames(explore_result$data),
                          regexpr("Entryname=",rownames(explore_result$data))+10, 
                          regexpr("SMASH",rownames(explore_result$data))-3)					     
@@ -347,8 +373,9 @@ makeExploreHeatmap <- function(explore_result, title, samplename){
                     show_row_dend = F,
                     column_order = order(explore_result$meta),
                     row_dend_side = "right",
-                    cluster_rows = T)
-  hg.names <- substr(colnames(explore_result$hgene), 7, 100)
+                    rect_gp = gpar(col="black", lwd=0.2),
+                    cluster_rows = F)
+  hg.names <- substr(colnames(explore_result$hgenes), 7, 100)
   ha_hg <- HeatmapAnnotation(col_names=anno_text(hg.names, location = 1, just = "right"), 
                              gp = gpar(fontsize=6)) 			       
   ht_house = Heatmap(explore_result$hgenes,
@@ -360,6 +387,7 @@ makeExploreHeatmap <- function(explore_result, title, samplename){
                      column_title = "HGs",
                      show_row_names = F,
                      column_names_gp = gpar(fontsize=7),
+                     rect_gp = gpar(col="black", lwd=0.2),
                      width = unit(2,"cm"))
   ht_list = ht_main + ht_house
   draw(ht_list, main_heatmap=samplename, ht_gap = unit(1, "mm"))
@@ -379,23 +407,23 @@ makeExploreHeatmap <- function(explore_result, title, samplename){
 # $6 Kruskall/fitZIG
 args <- commandArgs(trailingOnly = T)
 
-biom_file <- args[1]
-sampletype <- args[2]
-outdir = args[3]
-MT <- args[4]
-group_1 <- args[5]
-group_2 <- args[6]
-explore <- args[7]
+#biom_file <- args[1]
+#sampletype <- args[2]
+#outdir = args[3]
+#MT <- args[4]
+#group_1 <- args[5]
+#group_2 <- args[6]
+#explore <- args[7]
 
 # If not using the command_line version, insert your own data above
 # instead of the command line arguments.
-#biom_file <- "metaclust.map.biom" 
-#MT <- "DiseaseStatus"
-#sampletype <- "METAGENOMIC"
-#group_1 <- "CD"
-#group_2 <- "non-IBD"
-#test <- "fitzig"
-#explore <- TRUE
+biom_file <- "metaclust.map.biom" 
+MT <- "DiseaseStatus"
+sampletype <- "METAGENOMIC"
+group_1 <- "UC"
+group_2 <- "non-IBD"
+test <- "fitzig"
+explore <- TRUE
 
 if (sampletype == "METAGENOMIC"){
    sample.name <- "Abundance (DNA)"
@@ -450,7 +478,7 @@ ZIGtest_sample <- makeZIGmodel(MR_sample, MT, c(group_1, group_2))
 #ggqqplot(Zg_CD_nonIBD$data[1,], title = "fitZIG model")
 
 # Kruskall-Wallis testing
-Kruskalltest_sample <- makekruskalltest(MR_sample, MT, c(group_1, group_2), 0.05)
+Kruskalltest_sample <- makekruskalltest(MR_sample, MT, c(group_1, group_2), 0.075)
 
 # Post-Hoc testing with: 
 # Dunns test, Conover-Iman test, Dwass-Steel-Citchlow-Flinger test
@@ -470,7 +498,7 @@ if (nrow(ZIGtest_sample$data) > 0){
 
 if (nrow(Kruskalltest_sample$data) > 0){
   png(sprintf("Kruskallmodel_%s_%s_%s.png",group_1,group_2,sampletype), width = 1400)
-  makecomplexheatmap(Kruskalltest_sample, sprintf("%s samples Kruskall-Wallis model\np<0.05 -- %s vs %s", sampletype, group_1, group_2), sample.name)
+  makecomplexheatmap(Kruskalltest_sample, sprintf("%s samples Kruskall-Wallis model\np<0.1 -- %s vs %s", sampletype, group_1, group_2), sample.name)
   dev.off()
 } else{
   writestdout("There are no significant differentially abundant gene clusters found! Therefore no heatmap could be produced. Consult the p-value csv output.\nSampletype: %s\nModel: Kruskall-Wallis model\nMetagroup: %s\nGroups: %s and %s\n", sampletype, MT, group_1, group_2)
