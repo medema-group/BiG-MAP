@@ -41,7 +41,7 @@ ______________________________________________________________________
 ______________________________________________________________________
 
 Generic command: python3 BiG-MAP.map.py [Options]* -R [reference] 
--I1 [mate-1s] -I2 [mate-2s] -O [outdir]
+    -I1 [mate-1s] -I2 [mate-2s] -O [outdir] -F [family]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format
