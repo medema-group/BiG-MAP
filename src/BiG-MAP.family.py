@@ -812,7 +812,7 @@ def main():
     fastadict_ALL = makefastaheadersim(GCFs_ALL)
 
     # Writing results to outdir
-    writejson(GCFs_ALL, args.outdir, "fastani.fam")
+    writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
     writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
     GCFs_fasta = writeGCFfasta(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF.fna")
 
