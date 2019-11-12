@@ -65,6 +65,7 @@ FindHouseGenes <- function(significant_hits, countsdf) {
 
   # Finding the significant hits first, based on their unique fasta IDs
   significant_hits <- data.frame(significant_hits)
+  #significant_hits$rowname <- rownames(significant_hits)
   countsdf <- data.frame(countsdf)
   hits_IDs <- substr(rownames(significant_hits),
                      0,
@@ -168,28 +169,23 @@ makeZIGmodel <- function(MRobj, meta, groups){
   mod <- model.matrix(~d1 + normFactor) #   model matrix
   fit <- fitZig(obj = MR_mod, mod = mod, useCSSoffset = F)
   
-  # Parsing DA genes:
+  #Parsing DA gene clusters
   MR_coefs <- MRcoefs(fit, 
                       by=2, 
-                      number = 50, 
+                      number = 200, 
                       group = 2, 
                       adjustMethod = "BH", 
                       alpha = 0.05,
                       taxa = fit@taxa)
-  MR_coefs <- MR_coefs[order(MR_coefs$adjPvalues),]
-  countsdf <- data.frame(MRcounts(MR_mod, norm=T, log=T))
-  #countsdf <- data.frame(fit@counts)
-  countsdf$rowname <- rownames(countsdf)
+  MR_coefs$clust_name = rownames(MR_coefs)
+  clusters <- MR_coefs %>% 
+    filter(str_detect(MR_coefs$clust_name, "GC_DNA--"))
+  sig_clusters <- clusters[which(clusters$adjPvalues<0.05),]
   
-  # Filtering housekeeping genes out:
-  filtered_countsdf <- countsdf %>%
-    filter(str_detect(countsdf$rowname, "GC_DNA--"))
-  rownames(filtered_countsdf) <- filtered_countsdf$rowname
-  filtered_countsdf$rowname <- NULL
-  countsmat <- as.matrix(filtered_countsdf)
-  sig_hits <- countsmat[which(MR_coefs$adjPvalues<0.05),]
-
-
+  countsdf <- data.frame(MRcounts(MR_mod, norm=T, log=T))
+  sig_hits <- countsdf[which(rownames(countsmat) %in% sig_clusters$clust_name),]
+  countsdf$rowname <- rownames(countsdf)
+ 
   # Finding the relevant housekeeping genes counts:
   if (length(sig_hits)>0){
     hgenes <- FindHouseGenes(sig_hits, countsdf)
@@ -487,7 +483,7 @@ Kruskalltest_sample <- makekruskalltest(MR_sample, MT, c(group_1, group_2), 0.07
 ##################################
 # Exploratory analysis
 ##################################
-# MR gen
+
 if (nrow(ZIGtest_sample$data) > 0){
   png(sprintf("ZIGmodel_%s_%s_%s.png",group_1, group_2, sampletype), width = 900)
   makecomplexheatmap(ZIGtest_sample, sprintf("%s samples fitZIG model\np<0.05 -- %s vs %s", sampletype, group_1, group_2), sample.name)
