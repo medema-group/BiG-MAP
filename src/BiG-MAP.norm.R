@@ -183,7 +183,7 @@ makeZIGmodel <- function(MRobj, meta, groups){
   sig_clusters <- clusters[which(clusters$adjPvalues<0.05),]
   
   countsdf <- data.frame(MRcounts(MR_mod, norm=T, log=T))
-  sig_hits <- countsdf[which(rownames(countsmat) %in% sig_clusters$clust_name),]
+  sig_hits <- countsdf[which(rownames(countsdf) %in% sig_clusters$clust_name),]
   countsdf$rowname <- rownames(countsdf)
  
   # Finding the relevant housekeeping genes counts:
