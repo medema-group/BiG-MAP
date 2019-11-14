@@ -71,6 +71,7 @@ FindHouseGenes <- function(significant_hits, countsdf) {
                      0,
                      regexpr("GC_DNA--", rownames(significant_hits))-1)
   relevant_hgenes <- countsdf[which(substr(rownames(countsdf), 0, regexpr("GC_DNA--", rownames(significant_hits))-1) %in% hits_IDs),] # HousekeepingGenes
+  relevant_hgenes$rowname <- rownames(relevant_hgenes)
   relevant_hgenes <- relevant_hgenes %>%
     filter(str_detect(relevant_hgenes$rowname, "HG_DNA")) # Housekeeping genes later
   rownames(relevant_hgenes) <- relevant_hgenes$rowname
@@ -129,8 +130,59 @@ makeExplore <- function(MRobj, meta){
   avg_cov <- cbind(rowMeans(covd))
   
   # Taking out best covered gene clusters:
-  s <- avg_cov[order(avg_cov[,1], decreasing = T),][1:20]
-  best_covered <- as.matrix(avg_cov[rownames(avg_cov) %in% names(s),])
+  s <- avg_cov[order(avg_cov[,1], decreasing = T),, drop = F][1:20, , drop=F]
+  
+  
+  best_covered <- as.matrix(avg_cov[rownames(avg_cov) %in% rownames(s),])
+  #best_covered <- best_covered[order(best_covered[,1]),]
+  sig_hits <- countsdf[which(rownames(countsdf) %in% rownames(best_covered)),]
+  sig_cov <- covd[which(rownames(covd) %in% rownames(best_covered)),]
+  
+  sig_hits <- sig_hits[order(-best_covered[,1]),]
+  best_covered <- best_covered[order(-best_covered[,1]),]
+  sig_hits$rowname <- NULL
+  
+  # Finding the relevant housekeeping genes counts:
+  hgenes <- FindHouseGenes(sig_hits, countsdf)
+  hgenes_avg <- CorrectHousegenes(hgenes$avg)
+  hgenes_relevant <- CorrectHousegenes(hgenes$relevant)
+  
+  result <- list("data"=sig_hits, "meta"=d1, "coverage"=best_covered, "sig_cov" = sig_cov, "hgenes"=hgenes_avg, "hgenes_r" = hgenes_relevant, "hgenes_u"=hgenes$avg)
+  return(result)
+}
+
+makeExploreTaxa <- function(MRobj, meta, taxa1, taxa2){
+  # Explores the MRobj
+  # -parameters-
+  # MRobj: MR experiment object from metagenomeSeq
+  # meta: name of the metadata group condition (like DiseaseStatus)
+  # -outputs-
+  # result$data: the counts dataframe
+  # result$meta: the metadata groups
+  # result$cov: core cluster coverage values
+  # results$hgenes: values for the housekeeping genes
+  d1 <- pData(MRobj)[meta][,1]
+  
+  countsdf <- data.frame(MRcounts(MRobj, norm=T, log=T))
+  countsdf$rowname <- rownames(countsdf)
+  countsdf <- countsdf %>%
+    filter(str_detect(countsdf$rowname, taxa1) | 
+             str_detect(countsdf$rowname, taxa2))
+  rownames(countsdf) <- countsdf$rowname
+  
+  # Filtering coverage values:
+  cov = data.frame(fData(MRobj))
+  covd <- data.frame(sapply(cov, function(x) as.numeric(as.character(x))))
+  rownames(covd) <- rownames(cov)
+  covd <- covd[,which(colnames(covd) %in% colnames(countsdf))]
+  covd <- covd[which(rownames(covd) %in% rownames(countsdf)),]
+  avg_cov <- cbind(rowMeans(covd))
+  
+  # Taking out best covered gene clusters:
+  s <- avg_cov[order(avg_cov[,1], decreasing = T),, drop = F][1:20, , drop=F]
+  
+  
+  best_covered <- as.matrix(avg_cov[rownames(avg_cov) %in% rownames(s),])
   #best_covered <- best_covered[order(best_covered[,1]),]
   sig_hits <- countsdf[which(rownames(countsdf) %in% rownames(best_covered)),]
   sig_cov <- covd[which(rownames(covd) %in% rownames(best_covered)),]
@@ -148,7 +200,7 @@ makeExplore <- function(MRobj, meta){
   return(result)
 }
   
-makeZIGmodel <- function(MRobj, meta, groups){
+makeZIGmodel <- function(MRobj, meta, groups, alpha){
   # Makes a fitzig model and find DA genes
   # -parameters-
   # MRobj: MR experiment object from metagenomeSeq
@@ -175,12 +227,12 @@ makeZIGmodel <- function(MRobj, meta, groups){
                       number = 200, 
                       group = 2, 
                       adjustMethod = "BH", 
-                      alpha = 0.05,
+                      alpha = alpha,
                       taxa = fit@taxa)
   MR_coefs$clust_name = rownames(MR_coefs)
   clusters <- MR_coefs %>% 
     filter(str_detect(MR_coefs$clust_name, "GC_DNA--"))
-  sig_clusters <- clusters[which(clusters$adjPvalues<0.05),]
+  sig_clusters <- clusters[which(clusters$adjPvalues<alpha),]
   
   countsdf <- data.frame(MRcounts(MR_mod, norm=T, log=T))
   sig_hits <- countsdf[which(rownames(countsdf) %in% sig_clusters$clust_name),]
@@ -202,7 +254,7 @@ makeZIGmodel <- function(MRobj, meta, groups){
     # Calculating fold-change:
     logfold <- rowMeans(sig_hits[,which(d1==groups[1])]) - rowMeans(sig_hits[,which(d1==groups[2])])
     
-    result <- list("data"=sig_hits, "meta"=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=MR_coefs, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg)
+    result <- list("data"=sig_hits, "meta"=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=MR_coefs, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg, "alpha" = alpha)
     return(result)
   } else {
     return(list("data"=data.frame(), "p-value"=MR_coefs))
@@ -257,7 +309,7 @@ makekruskalltest <- function(MRobj, meta, groups, alpha){
 
   # Calculating fold-change:
     logfold <- rowMeans(sig_hits[,which(d1==groups[1])]) - rowMeans(sig_hits[,which(d1==groups[2])])
-    result <- list("data"=sig_hits, meta=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=adj.pvalue, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg)
+    result <- list("data"=sig_hits, meta=d1, "log2fold"=logfold, "coverage"=avg_cov, "p-value"=adj.pvalue, "hgenes"=hgenes_avg, "hgenes_r"= hgenes_relevant, "hgenes_u" = hgenes$avg, "alpha" = alpha)
     return(result)
   } else {
   return(list("data"=data.frame(), "p-value"=adj.pvalue))
@@ -415,7 +467,7 @@ args <- commandArgs(trailingOnly = T)
 # instead of the command line arguments.
 biom_file <- "metaclust.map.biom" 
 MT <- "DiseaseStatus"
-sampletype <- "METAGENOMIC"
+sampletype <- "METATRANSCRIPTOMIC"
 group_1 <- "UC"
 group_2 <- "non-IBD"
 test <- "fitzig"
@@ -459,6 +511,10 @@ if (explore  == "TRUE"){
   quit()
 } 
 
+# To analyse specific taxa use:
+#   explore_result <- makeExploreTaxa(MR_sample, "DiseaseStatus", "Roseburia", "Ruminococcus")
+#   makeExploreHeatmap(explore_result, sprintf("Explore Heatmap: %s", sampletype), sample.name)
+
 
 
 
@@ -466,7 +522,7 @@ if (explore  == "TRUE"){
 # Differential expresssion analysis
 ##################################
 # Moderated t-tests on gaussian modelled data using Fitzig:
-ZIGtest_sample <- makeZIGmodel(MR_sample, MT, c(group_1, group_2))
+ZIGtest_sample <- makeZIGmodel(MR_sample, MT, c(group_1, group_2), 0.15)
 
 # Showcasing normality after Fitzig
 #par(mfrow=c(2,1))
@@ -486,7 +542,7 @@ Kruskalltest_sample <- makekruskalltest(MR_sample, MT, c(group_1, group_2), 0.07
 
 if (nrow(ZIGtest_sample$data) > 0){
   png(sprintf("ZIGmodel_%s_%s_%s.png",group_1, group_2, sampletype), width = 900)
-  makecomplexheatmap(ZIGtest_sample, sprintf("%s samples fitZIG model\np<0.05 -- %s vs %s", sampletype, group_1, group_2), sample.name)
+  makecomplexheatmap(ZIGtest_sample, sprintf("%s samples fitZIG model\np<%s -- %s vs %s",  sampletype, ZIGtest_sample$alpha, group_1, group_2), sample.name)
   dev.off()
 } else{
   writestdout("There are no significant differentially abundant gene clusters found! Therefore no heatmap could be produced. Consult the p-value csv output.\nSampletype: %s\nModel: fitZIG model\nMetagroup: %s\nGroups: %s and %s\n", sampletype, MT, group_1, group_2)
@@ -494,7 +550,7 @@ if (nrow(ZIGtest_sample$data) > 0){
 
 if (nrow(Kruskalltest_sample$data) > 0){
   png(sprintf("Kruskallmodel_%s_%s_%s.png",group_1,group_2,sampletype), width = 1400)
-  makecomplexheatmap(Kruskalltest_sample, sprintf("%s samples Kruskall-Wallis model\np<0.1 -- %s vs %s", sampletype, group_1, group_2), sample.name)
+  makecomplexheatmap(Kruskalltest_sample, sprintf("%s samples Kruskall-Wallis model\np%s -- %s vs %s", sampletype, Kruskalltest_sample$alpha, group_1, group_2), sample.name)
   dev.off()
 } else{
   writestdout("There are no significant differentially abundant gene clusters found! Therefore no heatmap could be produced. Consult the p-value csv output.\nSampletype: %s\nModel: Kruskall-Wallis model\nMetagroup: %s\nGroups: %s and %s\n", sampletype, MT, group_1, group_2)

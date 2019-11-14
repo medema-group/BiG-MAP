@@ -74,10 +74,10 @@ Obligatory arguments:
 Options:
     -tg  Fraction between 0 and 1; the similarity treshold that
          determines when the protein sequences of the gene clusters
-         can be considered similar. Default = 0.7.
+         can be considered similar. Default = 0.6.
     -th  Fraction between 0 and 1; the similarity treshold that
          determines when the protein sequences of the housekeeping genes
-         can be considered similar. Default = ...
+         can be considered similar. Default = 0.8
     -f   Specify here the number of genes that are flanking the core
          genes of the gene cluster. 0 --> only the core, n --> n
          genes included that flank the core. defualt = 0
@@ -92,9 +92,9 @@ ______________________________________________________________________
     parser.add_argument( "-D", "--indir",help=argparse.SUPPRESS, nargs = "+", required = True)
     parser.add_argument( "-O", "--outdir",help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-tg", "--treshold_GC", help=argparse.SUPPRESS,
-                         required = False, default=0.7, type=float)
+                         required = False, default=0.6, type=float)
     parser.add_argument( "-th", "--treshold_HG", help=argparse.SUPPRESS,
-                         required = False, default=0.9, type=float)
+                         required = False, default=0.8, type=float)
     parser.add_argument( "-f", "--flank_genes",
                          help=argparse.SUPPRESS, required=False, type=int, default=0)
     parser.add_argument( "-g", "--genomefiles",
