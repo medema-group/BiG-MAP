@@ -163,7 +163,7 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
             --{bowtie2_setting}\
             --no-unal\
             --threads {threads} \
-            {'-f' if fasta} \
+            {'-f' if fasta else ''} \
             -x {index} \
             {sample_command}\
             -S {samfile}" #  The .sam file will contain only the map results for 1 sample
