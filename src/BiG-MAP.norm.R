@@ -455,23 +455,22 @@ makeExploreHeatmap <- function(explore_result, title, samplename){
 # $6 Kruskall/fitZIG
 args <- commandArgs(trailingOnly = T)
 
-#biom_file <- args[1]
-#sampletype <- args[2]
-#outdir = args[3]
-#MT <- args[4]
-#group_1 <- args[5]
-#group_2 <- args[6]
-#explore <- args[7]
+biom_file <- args[1]
+sampletype <- args[2]
+outdir = args[3]
+MT <- args[4]
+group_1 <- args[5]
+group_2 <- args[6]
+explore <- args[7]
 
 # If not using the command_line version, insert your own data above
 # instead of the command line arguments.
-biom_file <- "metaclust.map.biom" 
-MT <- "DiseaseStatus"
-sampletype <- "METATRANSCRIPTOMIC"
-group_1 <- "UC"
-group_2 <- "non-IBD"
-test <- "fitzig"
-explore <- TRUE
+#biom_file <- "metaclust.map.biom" 
+#MT <- "DiseaseStatus"
+#sampletype <- "METATRANSCRIPTOMIC"
+#group_1 <- "UC"
+#group_2 <- "non-IBD"
+#explore <- TRUE
 
 if (sampletype == "METAGENOMIC"){
    sample.name <- "Abundance (DNA)"

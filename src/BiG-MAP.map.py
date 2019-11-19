@@ -40,14 +40,12 @@ ______________________________________________________________________
      BiG-MAP map: maps the paired reads to the predicted MGCs
 ______________________________________________________________________
 
-Generic command: python3 BiG-MAP.map.py [Options]* -R [reference] 
-    -I1 [mate-1s] -I2 [mate-2s] -O [outdir] -F [family]
+Generic command: python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -R [reference] -O [outdir] -F [family] [Options*]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format
 
-Obligatory arguments:
-    -R    Provide the reference fasta file in .fasta or .fna format
+Data inputs: either paired or unpaired
     -I1   Provide the mate 1s of the paired metagenomic and/or
           metatranscriptomic samples here. These samples should be
           provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
@@ -56,6 +54,13 @@ Obligatory arguments:
           metatranscriptomic samples here. These samples should be
           provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
           can be a space seperated list from the command line.
+    -U    Provide the unpaired metagenomic/metatranscriptomic samples
+          here. These samples should be provided in fastq-format
+          (.fastq, .fq, .fq.gz). Also, this can be a space seperated
+          list from the command line.
+
+Obligatory arguments:
+    -R    Provide the reference fasta file in .fasta or .fna format
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
     -F    Input the by fastANI defined GCFs and HGFs file named:
@@ -84,8 +89,9 @@ ______________________________________________________________________
 ''')
     parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
-    parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=True)
-    parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = True)
+    parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=False)
+    parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = False)
+    parser.add_argument("-U","--U_fastq",nargs='+',help=argparse.SUPPRESS, required = False)
     parser.add_argument("-F", "--family", help=argparse.SUPPRESS, required=True)
     parser.add_argument( "-cc", "--corecalculation",
                          help=argparse.SUPPRESS, required = False)
@@ -97,7 +103,7 @@ ______________________________________________________________________
                          type=str, required = False, default="fast")
     parser.add_argument( "-th", "--threads", help=argparse.SUPPRESS,
                          type=int, required = False, default=6)
-    return(parser.parse_args())
+    return(parser, parser.parse_args())
 
 ######################################################################
 # Functions for mapping the reads against GCFs and % aligned
@@ -135,8 +141,12 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     mate2
     index
         string, the stemname of the bowtie2 index
+    fasta
+        Boolean, is the input fasta?
     bowtie2_setting
         string, the build-in setting for bowtie2
+    threads
+        int, number of threads used in the alignment
     returns
     ----------
     samfile = the .sam filename that contains all the results
@@ -145,17 +155,19 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     stem = Path(mate1).stem
     sample = stem.split("_")[0]
     samfile = f"{outdir}{sample}.sam"
+    # In the case of unpaired, m1 and m2 are identical. Thus the following works:
+    sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
     try:
         if not os.path.exists(samfile):
             cmd_bowtie2_map = f"bowtie2\
             --{bowtie2_setting}\
             --no-unal\
             --threads {threads} \
-            {'-f' if fasta else ''} \
+            {'-f' if fasta} \
             -x {index} \
-            -1 {mate1} \
-            -2 {mate2} \
+            {sample_command}\
             -S {samfile}" #  The .sam file will contain only the map results for 1 sample
+            
             print(f"the following command will be executed by bowtie2:\n\
 _____________________________________________________\n\
 {cmd_bowtie2_map}\n\
@@ -752,11 +764,24 @@ def main():
     5) writing the results to .json (=BIOM) and .csv 
     6) cleaning output directory
     """
-    args = get_arguments()
-    print("__________Fastq-files_________________________________")
-    print("\n".join(args.fastq1))
-    print("______________________________________________________")
-    print("\n".join(args.fastq2))
+    parser, args = get_arguments()
+
+    if args.fastq1 and args.fastq2 and not args.U_fastq:
+        print("__________Fastq-files_________________________________")
+        print("\n".join(args.fastq1))
+        print("______________________________________________________")
+        print("\n".join(args.fastq2))
+        fastq_files = zip(args.fastq1, args.fastq2)
+    elif not args.fastq1 and not args.fastq2 and args.U_fastq:
+        print("__________Fastq-files_________________________________")
+        print("\n".join(args.U_fastq))
+        fastq_files = zip(args.U_fastq, args.U_fastq) # In the case of unpaired, m1 and m2 are identical
+    else:
+        parser.print_help()
+        print("ERROR: -I1/-I2 and -U are mutually exclusive")
+        sys.exit()
+
+    
 
     results = {} #Will be filled with TPM,RPKM,coverage for each sample
     results_core = {}
@@ -770,7 +795,7 @@ def main():
     ##############################
     # Whole cluster calculation
     ##############################
-    for m1, m2 in zip(args.fastq1, args.fastq2):
+    for m1, m2 in fastq_files:
         s = bowtie2_map(args.outdir, m1, m2, i, args.fasta, args.bowtie2_setting, args.threads)
         b = samtobam(s, args.outdir)
         sortb = sortbam(b, args.outdir)

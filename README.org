@@ -96,14 +96,14 @@ BiG-MAP.GCF_HGF.json = Dictionary that contains the GCFs and HGFs
 #+END_EXAMPLE
 
 ** 3) BiG-MAP.map.py
-This module is designed to align the WGS (paired) reads to the
-reference representatives in each GCF and HGF. It does this using
+This module is designed to align the WGS (paired or unpaired) reads to
+the reference representatives in each GCF and HGF. It does this using
 /bowtie2/. The following will be computed: RPKM, coverage, core
 coverage. The coverage is calculated using /Bedtools/, and the read
 count values using /Samtools/. The general usage is:
 
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.map.py [Options]* -R [reference] -I1 [mate-1s] -I2 [mate-2s] -O [outdir]
+python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -R [reference] -O [outdir] -F [family] [Options*]
 #+END_EXAMPLE
 
 To map 10 reads from schirmer et al to the reference representatives
@@ -125,34 +125,43 @@ SRR5947934	C3001C9_MTX	METATRANSCRIPTOMIC	CD
 note the '#' to denote the header row!!!
 #+END_EXAMPLE
 
-** S-MAP.analyse.py
-This program analyses the mapping results using either a zero-inflated
-Gaussian mixture model (fitZIG) or a Kruskall model. 
+** 4) BiG-MAP.analyse.py
+This module is a wrapper script for BiG-MAP.norm.R. I highly recommend
+using this script locally in R studio, as that will ease the graphics
+output. The comments in the script mention how that works. For
+example:
+#+BEGIN_EXAMPLE
+Scroll down to the main in BiG-MAP.norm.R
+Edit and uncomment:
+biom_file <- "metaclust.map.biom" 
+MT <- "DiseaseStatus"
+sampletype <- "METATRANSCRIPTOMIC"
+group_1 <- "UC"
+group_2 <- "non-IBD"
+explore <- TRUE
+
+Run all the functions and analyse locally
+#+END_EXAMPLE
+
+If you want to do it from the command line (eg in automated analysis)
+it works as follows:
+#+BEGIN_EXAMPLE
+Generic command: python3 BiG-MAP.analyse.py inspect -B [biom_file] [options*]
+
+Example:
+python3 BiG-MAP.analyse.py inspect -B /mnt/scratch/usr001/BiG-MAP.map.biom -e /mnt/scratch/usr001/ -s metagenomic -m DiseaseStatus
+#+END_EXAMPLE
+
+To perform statistical testing on the biom file, use:
 
 #+BEGIN_EXAMPLE
-______________________________________________________________________
+Generic command: python3 BiG-MAP.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
 
-S-MAP analyse: analyse the biom-outputs (ZIG/Kruskall-Wallis)
-______________________________________________________________________
+Example:
+python3 BiG-MAP.analyse.py test -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -G UC non-IBD -O /mnt/scratch/usr001/
 
-Generic command: python3 S-MAP.analyse.py test -B [biom_file]
--T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
-
-Tests the present biom file using either a fitZIG model or a
-Kruskall-Wallis model. Note that it is also possible to work in R
-studio with the R script: meteclust.norm.R
-
-Obligatory arguments:
-    -B    Provide the Biom file here
-    -T    metagenomic/metatranscriptomic
-    -M    provide the metagroup here. This is the first column in the
-          options output. Examples: DiseaseStatus, Longitude, etc...
-    -G    Space separated list of 2 groups that are to be compared.
-          Example: UC and non-IBD --> UC non-IBD
-    -O    Put path to the output folder where the results should be
-          deposited. Default = current folder (.)
-______________________________________________________________________
 #+END_EXAMPLE
+
 * Requirements
 ** Software:
 - Python 3+
