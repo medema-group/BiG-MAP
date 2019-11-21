@@ -43,7 +43,8 @@ ______________________________________________________________________
 Generic command: python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -R [reference] -O [outdir] -F [family] [Options*]
 
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
-file and outputs RPKM read counts in .csv and BIOM format
+file and outputs RPKM read counts in .csv and BIOM format. Use
+BiG-MAP_process conda environment.
 
 Data inputs: either paired or unpaired
     -I1   Provide the mate 1s of the paired metagenomic and/or

@@ -60,7 +60,7 @@ Generic command: python3 BiG-MAP.family.py [Options]*
 -D [input dir(s)] -O [output dir]
 
 Create a redundancy filtered fasta reference file from multiple
-anti/gutSMASH outputs.  
+anti/gutSMASH outputs. Use BiG-MAP_process conda environment.
 
 
 Obligatory arguments: 

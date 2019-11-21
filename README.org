@@ -93,7 +93,7 @@ are present in the gut, with a fastANI treshold of 0.7 for both the
 GCFs and HGFs, no flanking genes of the core, no genome fasta file
 outputs and 6 process cores:
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.family.py -tg 0.7 -th 0.7 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -O /mnt/scratch/usr001/results/
+python3 BiG-MAP.family.py -tg 0.6 -th 0.8 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -O /mnt/scratch/usr001/results/
 
 This yields:
 BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py

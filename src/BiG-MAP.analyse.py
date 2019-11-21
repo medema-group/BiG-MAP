@@ -69,7 +69,7 @@ ______________________________________________________________________
 Generic command: python3 BiG-MAP.analyse.py inspect -B [biom_file]
 
 Display the avalaible comparisons that are present in the biom-file
-file here
+file here. Use the BiG-MAP_analyse conda environment. 
 
 
 Obligatory arguments:

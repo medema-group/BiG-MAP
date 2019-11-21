@@ -29,31 +29,31 @@ ______________________________________________________________________
     BiG-MAP Download: correctly download using fastq-dump program    
 ______________________________________________________________________
 
-Generic command: python3 BiG-MAP.download.py [Options]* 
--A [accession_list_file] -O [path_to_outdir]
+Generic command: python3 BiG-MAP.download.py -A [accession_list_file] -O [path_to_outdir]
 
-Downloads user specified WGS data from the NCBI. Dependencies: fastq-dump
+Downloads user specified WGS data from the NCBI. USE BiG-MAP_process
+conda environment.
 
 Obligatory arguments:
     -A    Put the filepath to the accession list file here. This file
           should consist of one accession on each line only. 
+          EXAMPLE:
+
+          SRR5947807
+          SRR5947812
+          SRR5947811
+          SRR5947810
+          SRR5947809
+          SRR5947808
+
+          Such accession lists can be downloaded from the SRA run
+          selector: https://www.ncbi.nlm.nih.gov/Traces/study/?
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
 ______________________________________________________________________
 ''')
-    parser.add_argument( "-n", "--datanumber", help="Input the WGS\
-    data, as mentioned in the table with data recommendations (see\
-    https://github.com/KoenvdBerg/MSc_thesis). Input number\
-    here.", required = False)
     parser.add_argument( "-O", "--outdir", help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-A", "--acclist", help=argparse.SUPPRESS, required = True)
-    parser.add_argument( "-p", "--fastqdump", help="Specify the full\
-    path to the fastq-dump program location here. default =\
-    /bin/fastq-dump. In the case that the program is not installed,\
-    download the binary from:\
-    https://ncbi.github.io/sra-tools/fastq-dump.html. Then\
-    unzip the package and use the path to that folder here.", required
-    = False)
     return(parser.parse_args())
 
 ######################################################################
