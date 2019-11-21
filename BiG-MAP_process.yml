@@ -1,4 +1,4 @@
-name: bio
+name: BiG-MAP_process
 channels:
   - biocore
   - anaconda

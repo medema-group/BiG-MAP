@@ -30,8 +30,14 @@ Install BiG-MAP dependencies using conda. Conda can be installed from
 
 Then install all the dependencies from the BiG-MAP.yml file with:
 #+BEGIN_EXAMPLE
-~$ conda env create -f BiG-MAP.yml BiG-MAP
-~$ conda activate BiG-MAP
+# For BiG-MAP.download.py, BiG-MAP.family.py and BiG-MAP.map.py
+~$ conda env create -f BiG-MAP_process.yml BiG-MAP_process
+~$ conda activate BiG-MAP_process
+
+# For BiG-MAP.analyse.py
+~$ conda env create -f BiG-MAP_analyse.yml BiG-MAP_analyse
+~$ conda activate BiG-MAP_analyse
+
 #+END_EXAMPLE
 After this all the dependencies are installed. BiG-MAP can now be used. 
 
