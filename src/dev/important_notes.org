@@ -1,0 +1,15 @@
+* Developer Notes for further improvement
+** Selecting the medoid instead of randomly selecting a MGCs from each family
+To calculate a medoid, you need a distance matrix. Then, sum each row
+to obtain the row totals, and select the lowest total (argmin). This will be
+the MGC that has the lowest distance to all other MGcs.
+
+This could be obtained by taking each MGC in the GCF and then taking
+out the information again from the ‘fastani.results’ file to create
+this distance matrix for each GCF.
+
+Then, compute the column or row sum and apply
+numpy.argmin(distMatrix.sum(axis=0))
+
+This will be a job that will take ~4h of coding to add. So, I think
+this could be something for Hannah to possibly take a look into.
