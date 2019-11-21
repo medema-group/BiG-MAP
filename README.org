@@ -149,8 +149,9 @@ explore <- TRUE
 Run all the functions and analyse locally
 #+END_EXAMPLE
 
-If you want to do it from the command line (eg in automated analysis)
-it works as follows:
+If you want to do it from the command line (eg in automated analysis),
+first install all dependencies using the BiG-MAP_process.yml file, if
+not done already. Then, it works as follows:
 #+BEGIN_EXAMPLE
 Generic command: python3 BiG-MAP.analyse.py inspect -B [biom_file] [options*]
 
