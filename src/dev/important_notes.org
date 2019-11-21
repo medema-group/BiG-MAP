@@ -1,5 +1,6 @@
 * Developer Notes for further improvement
 ** Selecting the medoid instead of randomly selecting a MGCs from each family
+
 To calculate a medoid, you need a distance matrix. Then, sum each row
 to obtain the row totals, and select the lowest total (argmin). This will be
 the MGC that has the lowest distance to all other MGcs.
@@ -13,3 +14,9 @@ numpy.argmin(distMatrix.sum(axis=0))
 
 This will be a job that will take ~4h of coding to add. So, I think
 this could be something for Hannah to possibly take a look into.
+** Phylogeny tree of predicted MGCs
+I think for the publication we should show in here which kind of
+clusters have been predicted in a phylogeny or something just to give
+an idea of which clusters we are trying to predict that might be more
+overrepresented in healthy samples since the CR collection was
+obtained from healthy donors

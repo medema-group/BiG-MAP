@@ -228,7 +228,7 @@ makeZIGmodel <- function(MRobj, meta, groups, alpha){
                       number = 200, 
                       group = 2, 
                       adjustMethod = "BH", 
-                      alpha = alpha,
+                      alpha = 0,01,
                       taxa = fit@taxa)
   MR_coefs$clust_name = rownames(MR_coefs)
   clusters <- MR_coefs %>% 
