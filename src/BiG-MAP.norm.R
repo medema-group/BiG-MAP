@@ -18,6 +18,7 @@
 ####################################################
 # import statements
 ####################################################
+# If 'metagenomeSeq' is not yet installed locally, use Biocmanager::install('metagenomeSeq')
 packages = c("metagenomeSeq","biomformat","ComplexHeatmap","viridisLite", "RColorBrewer","dplyr", "stringr")
 package.check <- lapply(packages, FUN = function(x) {
     #if (!require(x, character.only = TRUE)) {
@@ -507,7 +508,7 @@ if (explore  == "TRUE"){
   explore_result <- makeExplore(MR_sample, "DiseaseStatus")
   makeExploreHeatmap(explore_result, sprintf("Explore Heatmap: %s", sampletype), sample.name)
   dev.off()
-  quit()
+  quit() # uncomment if used locally
 } 
 
 # To analyse specific taxa use:
