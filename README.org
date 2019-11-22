@@ -3,14 +3,16 @@
 #+NAME: BiG-MAP.fig_1
 [[https://github.com/KoenvdBerg/BiG-MAP/blob/master/BiG-MAP.pipeline.png]]
 
-The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
-is currently in development. For the analysis of bacterial metagenomic
-and metatranscriptomic samples more and more tools become
-available. This tool is focussed on finding the representation of
-primary metabolic pathways and their related homologs in metagenomic
-and metatranscriptomic samples. These pathways are readily obtained
-from (draft) bacterial genomes using antiSMASH or gutSMASH. To be able
-to process the outputs from these tools into proper abundance and
+THis is the Github repository for the Biosynthetic Gene cluster
+Meta'omics abundance Profiler (BiG-MAP). For the analysis of bacterial
+metagenomic and metatranscriptomic samples more and more tools become
+available, although these tools are not capable of profiling specific
+metabolic gene clusters (MGCs), that have been shown to be major
+phenotype drivers. Therefore, this tool is focussed on finding the
+representation of MGCs and their related homologs in metagenomic and
+metatranscriptomic samples. These pathways are readily obtained from
+(draft) bacterial genomes using antiSMASH or gutSMASH. To be able to
+process the outputs from these tools into proper abundance and
 expressions values, the following programs form the essential part of
 BiG-MAP:
 - BiG-MAP.download.py
@@ -18,7 +20,7 @@ BiG-MAP:
 - BiG-MAP.map.py
 - BiG-MAP.analyse.py
 For information on how to implement this program, scroll down to
-*Overview and quickstart*. 
+*Overview and example run*. 
 
 * Installation
 Install BiG-MAP dependencies using conda. Conda can be installed from
@@ -41,7 +43,7 @@ Then install all the dependencies from the BiG-MAP.yml file with:
 #+END_EXAMPLE
 After this all the dependencies are installed. BiG-MAP can now be used. 
 
-* Example Workflow
+* Overview and example run
 A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
 1) Downloading WGS data using BiG-MAP.download.py
 2) Generating gene cluster families (GCFs) and housekeeping gene
@@ -59,10 +61,15 @@ metatranscriptomic samples from the online NCBI repository. First, the
 samples are downloaded in /.SRA/ format, and then they are converted
 into /.fastq/ pairs using /fastq-dump/. 
 #+BEGIN_EXAMPLE
+conda activate BiG-MAP_process
+python3 BiG-MAP.download.py -h
 python3 BiG-MAP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
 #+END_EXAMPLE
-To download the 78 samples from Schirmer et al. (2018), go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA
-run selector]] and run the following command:
+To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and fill in the
+study code. For the IBD-cohort of schirmer et al. (2018) that is
+PRJNA389280. Next, select the accessions and click *Accession List* to
+download the accessions. Use this accession file in the following
+command:
 #+BEGIN_EXAMPLE
 python3 BiG-MAP.download.py -A Acc_list.txt -O /mnt/scratch/usr001/fastq/schirmer/
 
@@ -85,12 +92,13 @@ used. FastANI is implemented to compute the GCFs and HGFs. The input
 consists of the output directories of anti- or gutSMASH. Options can
 be investigated by running the /-h/ flag. General usage is:
 #+BEGIN_EXAMPLE
+conda activate BiG-MAP_process
 python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
-In the example of a gutSMASH run on 1520 (draft) reference genomes that
-are present in the gut, with a fastANI treshold of 0.7 for both the
-GCFs and HGFs, no flanking genes of the core, no genome fasta file
+In the example of a gutSMASH run on 1520 (draft) reference genomes
+that are present in the gut, with a fastANI treshold of 0.6 for GFCs
+and 0.8 for HGFs, no flanking genes of the core, no genome fasta file
 outputs and 6 process cores:
 #+BEGIN_EXAMPLE
 python3 BiG-MAP.family.py -tg 0.6 -th 0.8 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -O /mnt/scratch/usr001/results/
@@ -109,6 +117,8 @@ coverage. The coverage is calculated using /Bedtools/, and the read
 count values using /Samtools/. The general usage is:
 
 #+BEGIN_EXAMPLE
+conda activate BiG-MAP_process
+python3 BiG-MAP.map.py -h
 python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -R [reference] -O [outdir] -F [family] [Options*]
 #+END_EXAMPLE
 
@@ -132,19 +142,22 @@ note the '#' to denote the header row!!!
 #+END_EXAMPLE
 
 ** 4) BiG-MAP.analyse.py
-This module is a wrapper script for BiG-MAP.norm.R. I highly recommend
-using this script locally in R studio, as that will ease the graphics
-output. The comments in the script mention how that works. For
+This module is a wrapper script for BiG-MAP.norm.R. This R script can
+also be used locally in R-studio, which is recommended for creating
+nice visualizations. Although the main set-back is that it requires
+local installation of all the dependencies, which is taken care of by
+BiG-MAP_analyse for the command line but not for local R-studio
+analyses. The comments in the script mention how that works. For
 example:
 #+BEGIN_EXAMPLE
 Scroll down to the main in BiG-MAP.norm.R
 Edit and uncomment:
-biom_file <- "metaclust.map.biom" 
-MT <- "DiseaseStatus"
-sampletype <- "METATRANSCRIPTOMIC"
-group_1 <- "UC"
-group_2 <- "non-IBD"
-explore <- TRUE
+biom_file <- path/to/biom-file
+MT <- condition
+sampletype <- "METATRANSCRIPTOMIC" | "METAGENOMIC"
+group_1 <- condition_1
+group_2 <- condition_2
+explore <- TRUE/FALSE
 
 Run all the functions and analyse locally
 #+END_EXAMPLE
@@ -153,16 +166,22 @@ If you want to do it from the command line (eg in automated analysis),
 first install all dependencies using the BiG-MAP_process.yml file, if
 not done already. Then, it works as follows:
 #+BEGIN_EXAMPLE
-Generic command: python3 BiG-MAP.analyse.py inspect -B [biom_file] [options*]
+python3 BiG-MAP.analyse.py inspect -h
+python3 BiG-MAP.analyse.py inspect -B [biom_file] [options*]
 
 Example:
 python3 BiG-MAP.analyse.py inspect -B /mnt/scratch/usr001/BiG-MAP.map.biom -e /mnt/scratch/usr001/ -s metagenomic -m DiseaseStatus
+
+Output: 
+which conditions can be analysed
+heatmap
 #+END_EXAMPLE
 
 To perform statistical testing on the biom file, use:
 
 #+BEGIN_EXAMPLE
-Generic command: python3 BiG-MAP.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
+python3 BiG-MAP.analyse.py test -h
+python3 BiG-MAP.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
 
 Example:
 python3 BiG-MAP.analyse.py test -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -G UC non-IBD -O /mnt/scratch/usr001/
