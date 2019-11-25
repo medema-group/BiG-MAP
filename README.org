@@ -3,7 +3,7 @@
 #+NAME: BiG-MAP.fig_1
 [[https://github.com/KoenvdBerg/BiG-MAP/blob/master/BiG-MAP.pipeline.png]]
 
-THis is the Github repository for the Biosynthetic Gene cluster
+This is the Github repository for the Biosynthetic Gene cluster
 Meta'omics abundance Profiler (BiG-MAP). For the analysis of bacterial
 metagenomic and metatranscriptomic samples more and more tools become
 available, although these tools are not capable of profiling specific
