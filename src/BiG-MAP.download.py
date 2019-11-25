@@ -127,7 +127,7 @@ def downloadSRA(acc, outdir):
         res_download = subprocess.check_output(cmd_download, shell=True)
     return()
 
-def convertSRAtofastq(acc, outdir, pathtofastqdump):
+def convertSRAtofastq(acc, outdir):
     """Extracts the .fastq files from the downloaded .sra files
     parameters
     ----------
@@ -141,7 +141,7 @@ def convertSRAtofastq(acc, outdir, pathtofastqdump):
     if os.path.exists("{}/{}_pass_1.fastq.gz".format(outdir, acc)):
         print("The .fastq file for {}*.fastq.gz already exists in {}".format(acc, outdir))
     else:
-        cmd = f"{pathtofastqdump if pathtofastqdump else ''}fastq-dump --gzip --skip-technical\
+        cmd = f"fastq-dump --gzip --skip-technical\
         --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {outdir}/{acc}.sra"
         res_download = subprocess.check_output(cmd, shell=True)
     return()
@@ -186,7 +186,7 @@ def main():
         accessions = parsemetadata(args.datanumber)
     for acc in accessions:
         downloadSRA(acc, args.outdir)
-        convertSRAtofastq(acc, args.outdir, args.fastqdump)
+        convertSRAtofastq(acc, args.outdir)
         sendnotification(acc, args.outdir, accessions)
 
 # Main code
