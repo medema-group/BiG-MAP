@@ -135,5 +135,5 @@ dependencies:
     - biom-format==2.1.7
     - click==7.0
     - future==0.17.1
-prefix: /mnt/scratch/berg266/programs/miniconda/envs/bio
+
 
