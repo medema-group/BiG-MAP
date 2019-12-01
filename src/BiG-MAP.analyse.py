@@ -192,17 +192,14 @@ def makeexploreheatmap(biom_file, sampletype, outdir, MT):
     MT
         string, name of the metagroup
     returns
-    test
     ----------
     None
     """
     # Obtaining directory name
-    abspath = os.path.abspath("BiG-MAP.analyse.py")
-    dname = os.path.dirname(abspath)
-    Rloc = "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/BiG-MAP_analyse/bin/"
+    dname = os.path.dirname(os.path.realpath(__file__))
     s_type = "METAGENOMIC" if "genomic" in sampletype else "METATRANSCRIPTOMIC"
     try:
-        cmd_R = f"{Rloc}Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' 'xxx' 'xxx' TRUE"
+        cmd_R = f"Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' 'xxx' 'xxx' TRUE"
         res_R = subprocess.check_output(cmd_R, shell=True)
     except(subprocess.CalledProcessError):
         print("__________ERROR________________________________________")
@@ -233,13 +230,11 @@ def analysebiom(biom_file, sampletype, outdir, MT, groups):
     None
     """
     # Obtaining directory name
-    abspath = os.path.abspath("BiG-MAP.analyse.py")
-    dname = os.path.dirname(abspath)
-    Rloc = "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/BiG-MAP_analyse/bin/"
+    dname = os.path.dirname(os.path.realpath(__file__))
     s_type = "METAGENOMIC" if "genomic" in sampletype else "METATRANSCRIPTOMIC"
     try:
         # Reducing file size first using awk
-        cmd_R = f"{Rloc}Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' '{groups[0]}' '{groups[1]}' FALSE"
+        cmd_R = f"Rscript {dname}/BiG-MAP.norm.R {biom_file} {s_type} {outdir} '{MT}' '{groups[0]}' '{groups[1]}' FALSE"
         res_R = subprocess.check_output(cmd_R, shell=True)
     except(subprocess.CalledProcessError):
         print("########## ERROR ####################################")
