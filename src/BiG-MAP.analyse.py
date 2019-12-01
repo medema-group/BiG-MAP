@@ -257,20 +257,12 @@ def movetodir(outdir, dirname, pattern):
     ----------
     None
     """
-    abspath = os.path.abspath("BiG-MAP.analyse.py")
-    dname = os.path.dirname(abspath)
-    # Make directory
-    """
-    try:
-        os.mkdir(f"{outdir}{dirname}")
-        print(f"Directory {outdir}{dirname} created")
-    except(FileExistsError):
-        print(f"Directory {outdir}{dirname} already exists")
-    """
-    # Move files into new directory
+    dname = os.getcwd()
+
+    # Move files into ouput directory
     for f in os.listdir(dname):
         if re.search(pattern, f):
-            shutil.move(os.path.join(dname,f), os.path.join(outdir))
+            shutil.move(os.path.join(dname,f), os.path.join(outdir,f))
 
 ######################################################################
 # MAIN
