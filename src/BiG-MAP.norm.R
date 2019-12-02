@@ -21,13 +21,13 @@
 # If 'metagenomeSeq' is not yet installed locally, use Biocmanager::install('metagenomeSeq')
 packages = c("metagenomeSeq","biomformat","ComplexHeatmap","viridisLite", "RColorBrewer","dplyr", "stringr")
     if (!requireNamespace("BiocManager", quietly = TRUE)){
-        print("installing BiocManager")
+        message("installing BiocManager")
         install.packages("BiocManager", repo="http://cran.rstudio.com/") 
         }
 
 suppressPackageStartupMessages(package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
-        print("installing packages")
+        message("installing package ", x)
         BiocManager::install(x)
 
     #library(x, character.only = TRUE)
