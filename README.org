@@ -27,7 +27,7 @@ Install BiG-MAP dependencies using conda. Conda can be installed from
 [[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. First pull the BiG-MAP repository from github:
 
 #+BEGIN_EXAMPLE
-~$ git clone https://github.com/KoenvdBerg/BiG-MAP.git
+~$ git clone https://github.com/HAugustijn/BiG-MAP.git
 #+END_EXAMPLE
 
 Then install all the dependencies from the BiG-MAP.yml file with:
