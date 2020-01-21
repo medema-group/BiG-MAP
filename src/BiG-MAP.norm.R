@@ -29,7 +29,7 @@ suppressPackageStartupMessages(package.check <- lapply(packages, FUN = function(
     if (!require(x, character.only = TRUE)) {
         message("installing package ", x)
         BiocManager::install(x)
-
+        
     #library(x, character.only = TRUE)
     suppressWarnings(suppressMessages(library(x, character.only = TRUE, quietly = T)))
     }

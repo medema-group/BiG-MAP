@@ -1,11 +1,12 @@
 name: BiG-MAP_process
 channels:
   - biocore
-  - anaconda
   - conda-forge
   - bioconda
+  - anaconda
   - defaults
 dependencies:
+  - _libgcc_mutex=0.1=main
   - bedtools=2.28.0=hdf88d34_0
   - biopython=1.73=py36h14c3975_0
   - blas=1.0=mkl
@@ -13,14 +14,16 @@ dependencies:
   - bowtie2=2.3.4.3=py36he860b03_1
   - brewer2mpl=1.4.1=py_3
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2019.10.16=0
-  - certifi=2019.9.11=py36_0
+  - ca-certificates=2019.11.27=0
+  - certifi=2019.11.28=py36_0
   - curl=7.65.2=hbc83047_0
   - cycler=0.10.0=py_1
   - dbus=1.13.6=he372182_0
+  - decorator=4.4.1=py_0
   - emacs=26.2=h745135b_0
   - expat=2.2.5=hf484d3e_1002
   - fastani=1.1=h4ef8376_0
+  - fasttree=2.1.10=h14c3975_3
   - fontconfig=2.13.1=he4413a7_1000
   - freetype=2.10.0=he983fc9_0
   - gettext=0.19.8.1=hc5be6a0_1002
@@ -34,6 +37,7 @@ dependencies:
   - icu=58.2=hf484d3e_1000
   - intel-openmp=2019.4=243
   - jinja2=2.10.3=py_0
+  - joblib=0.14.1=py_0
   - jpeg=9c=h14c3975_1001
   - kiwisolver=1.1.0=py36hc9558a2_0
   - krb5=1.16.1=h173b8e3_7
@@ -42,6 +46,7 @@ dependencies:
   - libdeflate=1.0=h14c3975_1
   - libedit=3.1.20181209=hc058e9b_0
   - libffi=3.2.1=h4deb6c0_3
+  - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=9.1.0=hdf63c60_0
   - libgfortran-ng=7.3.0=hdf63c60_0
   - libiconv=1.15=h516909a_1005
@@ -54,14 +59,17 @@ dependencies:
   - libxml2=2.9.9=h13577e0_0
   - lz4-c=1.8.3=he1b5a44_1001
   - markupsafe=1.1.1=py36h7b6447c_0
+  - mash=1.1=0
   - matplotlib=3.1.0=py36_1
   - matplotlib-base=3.1.0=py36hfd891ef_1
   - mkl=2019.4=243
+  - mkl-service=2.3.0=py36he904b0f_0
   - mkl_fft=1.0.13=py36h516909a_1
   - mkl_random=1.0.4=py36hf2d7682_0
   - ncbi-ngs-sdk=2.10.0=hdf6179e_0
   - ncurses=6.1=he6710b0_1
   - nettle=3.4.1=h1bed415_1002
+  - networkx=2.4=py_0
   - numpy=1.16.4=py36h7e9f1db_0
   - numpy-base=1.16.4=py36hde5b4d6_0
   - openssl=1.1.1=h7b6447c_0
@@ -99,6 +107,7 @@ dependencies:
   - qt=5.9.7=h52cfd70_2
   - readline=7.0=h7b6447c_5
   - samtools=1.9=h8571acd_11
+  - scikit-learn=0.22.1=py36hd81dba3_0
   - scipy=1.2.1=py36h7c811a0_0
   - setuptools=41.0.1=py36_0
   - sip=4.19.8=py36hf484d3e_1000
@@ -135,5 +144,5 @@ dependencies:
     - biom-format==2.1.7
     - click==7.0
     - future==0.17.1
-
+prefix: /lustre/BIF/nobackup/augus011/programs/miniconda3/envs/BiG-MAP_process
 

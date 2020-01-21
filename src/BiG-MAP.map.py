@@ -2,10 +2,10 @@
 
 """
 --------------- Mapping module ---------------
-Author: Koen van den Berg
+Author: Koen van den Berg & Hannah Augustijn
 University: Wageningen University and Research
 Department: Department of Bioinformatics
-Date: 01/07/2019
+Date: 21/01/2019
 ----------------------------------------------
 
 The purpose of this script is to map the metagenomic and
@@ -29,6 +29,7 @@ import pandas as pd
 import shutil
 import re
 import textwrap
+import pickle
 
 # Functions:
 def get_arguments():
@@ -36,16 +37,12 @@ def get_arguments():
     parser = argparse.ArgumentParser(description="",
     usage='''
 ______________________________________________________________________
-
      BiG-MAP map: maps the paired reads to the predicted MGCs
 ______________________________________________________________________
-
 Generic command: python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -R [reference] -O [outdir] -F [family] [Options*]
-
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
 file and outputs RPKM read counts in .csv and BIOM format. Use
 BiG-MAP_process conda environment.
-
 Data inputs: either paired or unpaired
     -I1   Provide the mate 1s of the paired metagenomic and/or
           metatranscriptomic samples here. These samples should be
@@ -59,18 +56,21 @@ Data inputs: either paired or unpaired
           here. These samples should be provided in fastq-format
           (.fastq, .fq, .fq.gz). Also, this can be a space seperated
           list from the command line.
+File inputs: either separated or pickled:
+    -R    Provide the reference fasta file in .fasta or .fna format
+    -F    Input the by MASH defined GCFs and HGFs file named:
+          'BiG-SCAPE.GCF_HGF.json' here. 
+    -P    Input files are in pickled format (named: BiG-MAP.[name].pickle). 
+          The format of the pickled file: fasta file, GCF json file, and 
+          optionally a bed file and/or BiG-SCAPE GCF dictionary.
 
 Obligatory arguments:
-    -R    Provide the reference fasta file in .fasta or .fna format
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
-    -F    Input the by fastANI defined GCFs and HGFs file named:
-          'fastani.GCFheaders.json' here. 
-
 Options:
     -cc   Also calculate the RPKM and coverage values for the core of
           the cluster present in the bedfile. Specify the bedfile
-          here. Bedfiles are outputted by BiG-MAP.genecluster.py
+          here. Bedfiles are outputted by BiG-MAP.family.py
           automatically and are named: BiG-MAP.GCF_HGF.bed
     -b    Outputs the resulting read counts in biom format (v1.0) as
           well. This will be useful to analyze the results in
@@ -84,18 +84,20 @@ Options:
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
                       very-sensitive-local
           DEFAULT = fast
+    -bf   Input the GCF families defined by BiG-SCAPE, named: BiG-MAP.GCF.json
     -th   Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
-
 ''')
-    parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-R", "--reference", help=argparse.SUPPRESS, required=False)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-I1","--fastq1", nargs='+',help=argparse.SUPPRESS, required=False)
     parser.add_argument("-I2","--fastq2",nargs='+',help=argparse.SUPPRESS, required = False)
     parser.add_argument("-U","--U_fastq",nargs='+',help=argparse.SUPPRESS, required = False)
-    parser.add_argument("-F", "--family", help=argparse.SUPPRESS, required=True)
+    parser.add_argument("-F", "--family", help=argparse.SUPPRESS, required=False)
+    parser.add_argument("-P", "--pickle_file", help=argparse.SUPPRESS, required=False)
     parser.add_argument( "-cc", "--corecalculation",
                          help=argparse.SUPPRESS, required = False)
+    parser.add_argument("-bf", "--bigscape_families", help=argparse.SUPPRESS, required=False)
     parser.add_argument( "-b", "--biom_output",
                          help=argparse.SUPPRESS, type=str, required = False)
     parser.add_argument( "-f", "--fasta", help=argparse.SUPPRESS,
@@ -119,7 +121,7 @@ def bowtie2_index(reference, outdir):
         string, the path of the output directory
     returns
     ----------
-    index name = the name of the built bowtie2 index 
+    index name = the name of the built bowtie2 index
     """
     try:
         stem = Path(reference).stem
@@ -130,7 +132,8 @@ def bowtie2_index(reference, outdir):
     except(subprocess.CalledProcessError):
         print("Error-code M3:001, check error table")
         # Proper error here, also exit code
-    return(index_name)
+    return (index_name)
+
 
 def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     """Maps the .fq file to the reference (fasta)
@@ -167,19 +170,20 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
             {'-f' if fasta else ''} \
             -x {index} \
             {sample_command}\
-            -S {samfile}" #  The .sam file will contain only the map results for 1 sample
-            
+            -S {samfile}"  # The .sam file will contain only the map results for 1 sample
+
             print(f"the following command will be executed by bowtie2:\n\
 _____________________________________________________\n\
 {cmd_bowtie2_map}\n\
 _____________________________________________________\n")
-            res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr = subprocess.STDOUT)
+            res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr=subprocess.STDOUT)
             # Saving mapping percentage:
             with open(f"{outdir}bowtie2_log.txt", "a+") as f:
                 f.write(f"#{sample}\n{res_map.decode('utf-8')}")
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return(samfile)
+        pass  # raise error here
+    return (samfile)
+
 
 def parse_perc(outdir):
     """parses the percentage from the bowtie2 stdout
@@ -201,9 +205,46 @@ def parse_perc(outdir):
                 sample = line[1:]
             if "overall" in line:
                 perc = line.split(" ")[0][:-1]
-                perc = float(perc)/100
+                perc = float(perc) / 100
                 ret[sample] = [perc]
-    return(ret)
+    return (ret)
+
+def unpickle_files(pickled_file, outdir):
+    """Extracts the files from the pickled_file
+    parameters
+    ----------
+    pickled_files
+        pickled file, contains the reference in
+        fasta format, GCF family dict, optionally BGCF dict
+        and bed file
+    Returns
+    ----------
+    fasta_file, reference in fasta format
+    GCF_dict, {family name: family members}
+    BGCF_dict, {family name: family members}
+    bed_file, orgID, loc1, loc2
+    """
+    f = open(pickled_file, "rb")
+    bed_file = f"{outdir}BiG-MAP.GCF_HGF.bed"
+    fasta_file = f"{outdir}BiG-MAP.GCF_HGF.fna"
+
+    fasta = pickle.load(f)
+    GCF_dict = pickle.load(f)
+    BGCF_dict = pickle.load(f)
+    bed = pickle.load(f)
+    f.close()
+
+    with open (bed_file, "w") as bed_file:
+        for line in bed:
+            bed_file.write(line)
+    with open (fasta_file, "w") as fasta_file:
+        for key in fasta.keys():
+            sequence = fasta[key]
+            fasta_seq = f">{key}\n{sequence}\n"
+            fasta_file.write(fasta_seq)
+
+    return(fasta_file.name, GCF_dict, BGCF_dict, bed_file.name)
+
 
 ######################################################################
 # Functions for reading SAM and BAM files
@@ -212,7 +253,7 @@ def samtobam(sam, outdir):
     """converts .sam to .bam using samtools view
     parameters:
     ----------
-    sam 
+    sam
         string, name of the outputted bowtie2 mapping
     outdir
         string, the path of the output directory
@@ -228,8 +269,9 @@ def samtobam(sam, outdir):
         > {bamfile}"
         res_samtobam = subprocess.check_output(cmd_samtobam, shell=True)
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return(bamfile)
+        pass  # raise error here
+    return (bamfile)
+
 
 def sortbam(bam, outdir):
     """sorts the bam file
@@ -249,8 +291,9 @@ def sortbam(bam, outdir):
         cmd_sortbam = f"samtools sort {bam} > {sortedbam}"
         res_sortbam = subprocess.check_output(cmd_sortbam, shell=True)
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return(sortedbam)
+        pass  # raise error here
+    return (sortedbam)
+
 
 def indexbam(sortedbam, outdir):
     """Builds a bam index
@@ -268,8 +311,9 @@ def indexbam(sortedbam, outdir):
         cmd_bam_index = f"samtools index {sortedbam}"
         res_index = subprocess.check_output(cmd_bam_index, shell=True)
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return()
+        pass  # raise error here
+    return ()
+
 
 def countbam(sortedbam, outdir):
     """calculates the raw counts from a BAM index
@@ -288,14 +332,78 @@ def countbam(sortedbam, outdir):
         cmd_count = f"samtools idxstats {sortedbam} > {counts_file}"
         res_count = subprocess.check_output(cmd_count, shell=True)
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return(counts_file)
+        pass  # raise error here
+    return (counts_file)
+
+def correct_counts(countsfile, family):
+    """Corrects the number of counts for the BiG-SCAPE families
+    ----------
+    countsfile
+        string, the name of the sorted counts file
+    family
+        json, {HGF/GCF representative: HGF/GCF members}
+    returns
+    ----------
+    corrected_countsfile = file containing the counts
+    """
+    corrected_countsfile = f"{countsfile[:-12]}corrected.count"
+
+    with open(corrected_countsfile, "w") as counts_adj:
+        with open(countsfile, "r") as counts:
+            for line in counts:
+                cluster, length, nreads, nnoreads = line.strip().split("\t")
+                for key in GCF_dict.keys():
+
+                    # If the BiG-SCAPE family is larger than 1, adjust the number of family members
+                    if cluster == key and len(GCF_dict[key]) > 1:
+                        adj_key, number = correct_family_size(cluster, key, nreads, GCF_dict)
+                        counts_adj.write(f"{adj_key}\t{length}\t{number}\t{nnoreads}\n")
+
+                    # The BiG-SCAPE family size is equal to 1, no correction is needed
+                    elif cluster == key and len(GCF_dict[key]) == 1:
+                        counts_adj.write(f"{key}\t{length}\t{nreads}\t{nnoreads}\n")
+
+                    # The cluster is already in another family
+                    else:
+                        pass
+    return(corrected_countsfile)
+
+def correct_family_size(cluster, key, number_reads, GCF_dict):
+    """
+    calculate the total sum of counts and number of family members of a BiG-SCAPE GCF family
+    ----------
+    cluster
+        string, the name of the cluster
+    key
+        string, the name of the key
+    number_reads
+        int, the number of reads
+    GCF_dict
+        dictionary, {HGF/GCF representative: HGF/GCF members}
+    returns
+    ----------
+    adj_key = adjusted key for total number of family members
+    read_total = total sum of reads
+    """
+    fam_size = []
+    read_total = 0
+    for name in GCF_dict[key]:
+        fam_size.append(float(name.split("--")[-1].split("=")[-1]))
+        total_fam_size = int(sum(fam_size))
+        if cluster in GCF_dict[key]:
+            read_total += int(number_reads)
+    adj_key = name.split("NR=")[0]
+    adj_key = f"{adj_key}NR={total_fam_size}"
+
+    return(adj_key, read_total)
+
+
 
 def extractcorefrombam(bam, outdir, bedfile):
     """extracts regions in bedfile format from bam file
     parameters:
     ----------
-    bam 
+    bam
         string, the name of the accession bamfile, ".bam"-file
     outdir
         string, the path of the output directory
@@ -317,17 +425,18 @@ def extractcorefrombam(bam, outdir, bedfile):
             res_extractcore = subprocess.check_output(cmd_extractcore, shell=True)
             print(cmd_extractcore)
         except(subprocess.CalledProcessError):
-            pass # raise error here
+            pass  # raise error here
     else:
         # raise bedfile error here!!!
         pass
-    return(bamfile)
+    return (bamfile)
+
 
 ######################################################################
 # RPKM and TPM counting
 ######################################################################
 def calculateTPM(countsfile):
-    """Calculates the TPM values for a sample 
+    """Calculates the TPM values for a sample
     TPM = rate/sum(rate) * 10^6
     rate = nreads/cluster_length (kb)
     parameters
@@ -347,10 +456,10 @@ def calculateTPM(countsfile):
             line = line.strip()
             cluster, length, nreads, nnoreads = line.split("\t")
             if "NR" in cluster:
-                    NR = float(cluster.split("--")[-1].split("=")[-1])
-                    nreads = float(nreads)/NR
+                NR = float(cluster.split("--")[-1].split("=")[-1])
+                nreads = float(nreads) / NR
             try:
-                rate = float(nreads)/float(length)
+                rate = float(nreads) / float(length)
                 rates[cluster] = rate
                 ratesum += rate
             except(ZeroDivisionError):
@@ -358,13 +467,14 @@ def calculateTPM(countsfile):
     TPM = {}
     for key in rates:
         try:
-            TPM[key] = rates[key]/ratesum
+            TPM[key] = rates[key] / ratesum
         except(ZeroDivisionError):
             TPM[key] = 0
-    return(TPM)
+    return (TPM)
+
 
 def calculateRPKM(countsfile):
-    """Calculates the RPKM values for a sample 
+    """Calculates the RPKM values for a sample
     RPKM = read_counts/(cluster_length * sum(read_counts)) * 10^9
     parameters
     ----------
@@ -384,7 +494,7 @@ def calculateRPKM(countsfile):
                 cluster, length, nreads, nnoreads = line.split("\t")
                 if "NR" in cluster:
                     NR = float(cluster.split("--")[-1].split("=")[-1])
-                    nreads = float(nreads)/NR
+                    nreads = float(nreads) / NR
                     read_counts[cluster] = nreads
                 else:
                     read_counts[cluster] = float(nreads)
@@ -394,11 +504,12 @@ def calculateRPKM(countsfile):
     RPKM = {}
     for key in read_counts:
         try:
-            RPKM[key] = read_counts[key]/(sum_reads*cluster_lengths[key]) * 1000000000                    
-                
+            RPKM[key] = read_counts[key] / (sum_reads * cluster_lengths[key]) * 1000000000
+
         except(ZeroDivisionError):
             RPKM[key] = 0
-    return(RPKM)
+    return (RPKM)
+
 
 def parserawcounts(countsfile):
     """parses the raw counts from a countsfile
@@ -418,20 +529,21 @@ def parserawcounts(countsfile):
                 cluster, length, nreads, nnoreads = line.split("\t")
                 if "NR" in cluster:
                     NR = float(cluster.split("--")[-1].split("=")[-1])
-                    raw_counts[cluster] = float(nreads)/NR
+                    raw_counts[cluster] = float(nreads) / NR
                 else:
                     raw_counts[cluster] = float(nreads)
-    return(raw_counts)
-    
+    return (raw_counts)
+
+
 ######################################################################
 # Functions for analysing coverage with Bedtools genomecov
 ######################################################################
 def preparebedtools(outdir, reference):
-    """makes the -g genome.file for bedtools from a fasta file. This 
-    file is formatted as follows: 
+    """makes the -g genome.file for bedtools from a fasta file. This
+    file is formatted as follows:
     fastaheader, length
     hseq1, len(seq1)
-     :       : 
+     :       :
     hseqn, len(seqn)
     parameters
     ----------
@@ -448,37 +560,12 @@ def preparebedtools(outdir, reference):
     with open(genome_file, "w") as w:
         with open(reference, "r") as f:
             for line in f:
-                line = line.strip()
-                if line.startswith(">"):
-                    line = line.replace("core_", "")
-                    w.write(f"{c}\n")
-                    c = 0
-                    w.write(f"{line[1:]}\t")
-                else:
-                    c += len(line)
-            w.write(f"{c}")
+                name, length, no1, no2 = line.strip().split("\t")
+                w.write(f"{name}\t{length}\n")
 
-    #try:
-    #    # This could also be done using samtools idxstats and extracting $1 & $2
-    #    cmd_prepare = """awk \
-    #    '$0 ~ ">" {\
-    #         print c; \
-    #         c=0;\
-    #         printf substr($0,2,150) "\t";\
-    #         } \
-    #    $0 !~ ">" {\
-    #        c+=length($0);\
-    #    } \
-    #    END { \
-    #    print c; \
-    #    }\
-    #    ' %s > %s"""%(reference, genome_file) 
-    #    res_prepare = subprocess.check_output(cmd_prepare, shell=True)
-    #except(subprocess.CalledProcessError):
-    #    pass # raise error here
+    return (genome_file)
 
-    return(genome_file)
-    
+
 def bedtoolscoverage(gfile, outdir, sortedbam):
     """computes the coverage for each mapped region
     parameters
@@ -497,13 +584,14 @@ def bedtoolscoverage(gfile, outdir, sortedbam):
     """
     stem = Path(sortedbam).stem
     bg_file = f"{outdir}{stem.split('.')[0]}.bg"
-    
+
     try:
         cmd_bedtools = f"bedtools genomecov -bga -ibam {sortedbam} -g {gfile} > {bg_file}"
         res_bedtools = subprocess.check_output(cmd_bedtools, shell=True)
     except(subprocess.CalledProcessError):
-        pass # raise error here
-    return(bg_file)
+        pass  # raise error here
+    return (bg_file)
+
 
 def computetotalcoverage(bgfile):
     """computes the total coverage of a gene cluster from a .bg file
@@ -515,23 +603,37 @@ def computetotalcoverage(bgfile):
     ----------
     total_coverage = {cluster: totalcov}
     """
-    nocov = {}                                                 
-    clusterlen = {}                                            
-    with open(bgfile, "r") as f:                               
-        for line in f:                                         
-            line = line.strip()                                
+    nocov = {}
+    clusterlen = {}
+    with open(bgfile, "r") as f:
+        for line in f:
+            line = line.strip()
             cluster, start, end, cov = line.split("\t")
-            clusterlen[cluster] = float(end) # last encounter is length
-            if not cluster in nocov: # make entry
+            clusterlen[cluster] = float(end)  # last encounter is length
+            if not cluster in nocov:  # make entry
                 nocov[cluster] = 0
-            if float(cov) == 0: # enter no coverage values
-                    nocov[cluster] += (float(end)-float(start))
+            if float(cov) == 0:  # enter no coverage values
+                nocov[cluster] += (float(end) - float(start))
     total_coverage = {}
     for key in nocov.keys():
-        perc = (clusterlen[key] - nocov[key])/clusterlen[key]
+        perc = (clusterlen[key] - nocov[key]) / clusterlen[key]
         # Set treshold here!!!
         total_coverage[key] = perc
-    return(total_coverage)
+    return (total_coverage)
+
+def correct_coverage(coverage, reference):
+    """
+    """
+    outdict = {}
+    with open (reference, "r") as ref:
+        for line in ref:
+            name, no1, no2, no3 = line.strip().split("\t")
+            for key in coverage.keys():
+                orgname, number = key.split("NR=")
+                if orgname in name:
+                    outdict[name] = coverage[key]
+    return(outdict)
+
 
 def computecorecoverage(bedgraph, bedfile):
     """computes the core "enzymatic" coverage for gene clusters
@@ -553,17 +655,18 @@ def computecorecoverage(bedgraph, bedfile):
     bedgraph
         name of the bedgraph file
     bedfile
-        the name of the bedfile with core coordinates        
+        the name of the bedfile with core coordinates
     returns
     ----------
     core_coverage = dict, {cluster: corecov}
     """
+
     def local_computecov(start_list, end_list, local_entry):
         """Computes the local cov value
-        Ls = local entry start 
+        Ls = local entry start
         Le = local entry end
-        Ts = true start of core gene 
-        Te = true end of core gene 
+        Ts = true start of core gene
+        Te = true end of core gene
         parameters
         ----------
         start_list
@@ -580,19 +683,20 @@ def computecorecoverage(bedgraph, bedfile):
         Ls = local_entry[0]
         Le = local_entry[1]
         for Ts, Te in zip(start_list, end_list):
-            if Ls>Ts and Ls<Te and Le>Ts and Le<Te:
+            if Ls > Ts and Ls < Te and Le > Ts and Le < Te:
                 # in
-                ret_cov += Le-Ls
-            if Ls<Ts and Ls<Te and Le>Ts and Le<Te:
+                ret_cov += Le - Ls
+            if Ls < Ts and Ls < Te and Le > Ts and Le < Te:
                 # start out
-                ret_cov += Le-Ts
-            if Ls>Ts and Ls<Te and Le>Ts and Le>Te:
+                ret_cov += Le - Ts
+            if Ls > Ts and Ls < Te and Le > Ts and Le > Te:
                 # end out
-                ret_cov += Te-Ls  
-            if Ls<Ts and Ls<Te and Le>Ts and Le>Te:
+                ret_cov += Te - Ls
+            if Ls < Ts and Ls < Te and Le > Ts and Le > Te:
                 # start&end out
-                ret_cov += Te-Ts
-        return(ret_cov)
+                ret_cov += Te - Ts
+        return (ret_cov)
+
     # Parsing bedfile for Ts, Te, and core lengths:
     core_starts = {}
     core_ends = {}
@@ -611,28 +715,27 @@ def computecorecoverage(bedgraph, bedfile):
             core_starts[clust].append(int(start))
             core_ends[clust].append(int(end))
     # Parsing bedgraph for entries
-    nocov = {}                                                 
-    with open(bedgraph, "r") as f:                               
-        for line in f:                                         
-            line = line.strip()                                
+    nocov = {}
+    with open(bedgraph, "r") as f:
+        for line in f:
+            line = line.strip()
             cluster, start, end, cov = line.split("\t")
-            #if "--NR" in cluster_NR:
+            # if "--NR" in cluster_NR:
             #    NR_index = cluster_NR.find("--NR")
             #    cluster = cluster_NR[:NR_index]
-            #else:
+            # else:
             #    cluster = cluster_NR
-            if not cluster in nocov: # make entry
+            if not cluster in nocov:  # make entry
                 nocov[cluster] = 0
-            if float(cov) == 0: # enter no coverage values
+            if float(cov) == 0:  # enter no coverage values
                 not_covered = local_computecov(core_starts[cluster], core_ends[cluster], [int(start), int(end)])
                 nocov[cluster] += not_covered
     # Final coverage calculation:
     total_coverage = {}
     for key in nocov.keys():
-        perc = (core_lengths[key] - nocov[key])/core_lengths[key]
+        perc = (core_lengths[key] - nocov[key]) / core_lengths[key]
         total_coverage[key] = perc
-    return(total_coverage)
-
+    return (total_coverage)
 
 
 def familycorrect(c_dict, family):
@@ -645,19 +748,16 @@ def familycorrect(c_dict, family):
         json, {HGF representative: HGF members}
     """
     ret = {}
-    with open(family, "r") as j:
-        family = json.load(j)
-    
+
     for GC, v in c_dict.items():
-        if "HG_DNA"in GC:
+        if "HG_DNA" in GC:
             for HGF_member in family[GC]:
                 key_NR = GC[GC.index("--NR"):]
                 ret[f"{HGF_member}{key_NR}"] = v
         else:
             ret[GC] = v
-    return(ret)
 
-
+    return (ret)
 
 
 ######################################################################
@@ -672,7 +772,7 @@ def writejson(dictionary, outdir, outfile_name):
     outdir
         string, the path to output directory
     outfile_name
-        string, name for the outfile 
+        string, name for the outfile
     returns
     ----------
     outfile = name of the .json outfile
@@ -680,9 +780,10 @@ def writejson(dictionary, outdir, outfile_name):
     outfile = f"{outdir}{outfile_name}"
     with open(outfile, "w") as w:
         w.write(json.dumps(dictionary, indent=4))
-    return(outfile)
+    return (outfile)
 
-def export2biom(outdir, core = ""):
+
+def export2biom(outdir, core=""):
     """writes the results to biom format for easy loading into metagenomeSeq
     parameters
     ----------
@@ -691,13 +792,14 @@ def export2biom(outdir, core = ""):
     returns
     ----------
     biom_file = the created biom-format file (without metadata)
-    """    
+    """
     biom_file = f"{outdir}BiG-MAP.map{core}.biom"
     cmd_export2biom = f"biom convert -i {outdir}BiG-MAP.map.results.{core}RPKM_filtered.txt -o {biom_file} --table-type='Pathway table' --to-json"
     res_export = subprocess.check_output(cmd_export2biom, shell=True)
-    return(biom_file)
+    return (biom_file)
 
-def decoratebiom(biom_file, outdir, metadata, core = ""):
+
+def decoratebiom(biom_file, outdir, metadata, core=""):
     """inserts rows and column data
     """
     cmd_sample = f"biom add-metadata -i {biom_file} -o {biom_file} -m {metadata}"
@@ -709,7 +811,8 @@ def decoratebiom(biom_file, outdir, metadata, core = ""):
         biom_dict = json.load(f)
     with open(biom_file, "w") as w:
         w.write(json.dumps(biom_dict, indent=4))
-    return(biom_file)
+    return (biom_file)
+
 
 def purge(d, pattern):
     """removes files matching a pattern
@@ -724,7 +827,8 @@ def purge(d, pattern):
     """
     for f in os.listdir(d):
         if re.search(pattern, f):
-            os.remove(os.path.join(d, f))        
+            os.remove(os.path.join(d, f))
+
 
 def movetodir(outdir, dirname, pattern):
     """moves files matching a patterd into new directory
@@ -749,7 +853,8 @@ def movetodir(outdir, dirname, pattern):
     # Move files into new directory
     for f in os.listdir(outdir):
         if re.search(pattern, f):
-            shutil.move(os.path.join(outdir,f), os.path.join(outdir, dirname))
+            shutil.move(os.path.join(outdir, f), os.path.join(outdir, dirname))
+
 
 ######################################################################
 # MAIN
@@ -762,7 +867,7 @@ def main():
     3) bedtools for computing coverage for each cluster
     4) using the fastANI result for adding HGF values
     5) saving all the results in dictionary (=memory)
-    5) writing the results to .json (=BIOM) and .csv 
+    5) writing the results to .json (=BIOM) and .csv
     6) cleaning output directory
     """
     parser, args = get_arguments()
@@ -776,22 +881,38 @@ def main():
     elif not args.fastq1 and not args.fastq2 and args.U_fastq:
         print("__________Fastq-files_________________________________")
         print("\n".join(args.U_fastq))
-        fastq_files = zip(args.U_fastq, args.U_fastq) # In the case of unpaired, m1 and m2 are identical
+        fastq_files = zip(args.U_fastq, args.U_fastq)  # In the case of unpaired, m1 and m2 are identical
     else:
         parser.print_help()
         print("ERROR: -I1/-I2 and -U are mutually exclusive")
         sys.exit()
 
-    
+    if args.reference and args.family and not args.pickle_file:
+        reference = args.reference
+        json_file = args.family
+        with open(json_file, "r") as jfile:
+            family = json.load(jfile)
+        if args.corecalculation:
+            bed_file = args.corecalculation
+        if args.bigscape_families:
+            bjson_file = args.bigscape_families
+            with open(bjson_file, "r") as bjfile:
+                BGCF = json.load(bjfile)
+    elif not args.reference and not args.family and args.pickle_file:
+        reference, family, BGCF, bed_file = unpickle_files(args.pickle_file, args.outdir)
+    else:
+        parser.print_help()
+        print("ERROR: -R/-F and -P are mutually exclusive")
+        sys.exit()
 
-    results = {} #Will be filled with TPM,RPKM,coverage for each sample
+    results = {}  # Will be filled with TPM,RPKM,coverage for each sample
     results_core = {}
-    mapping_percentages = {} #Mappping percs for each sample
-    
+    mapping_percentages = {}  # Mappping percs for each sample
+
     ##############################
     # Preparing mapping
     ##############################
-    i = bowtie2_index( args.reference, args.outdir)
+    i = bowtie2_index(reference, args.outdir)
 
     ##############################
     # Whole cluster calculation
@@ -802,22 +923,32 @@ def main():
         sortb = sortbam(b, args.outdir)
         indexbam(sortb, args.outdir)
         countsfile = countbam(sortb, args.outdir)
-        TPM =  calculateTPM(countsfile)
+        if args.bigscape_families:
+            countsfile = correct_counts(countsfile, BGCF)
+
+        TPM = calculateTPM(countsfile)
         RPKM = calculateRPKM(countsfile)
         raw = parserawcounts(countsfile)
 
         ##############################
         # bedtools: coverage
         ##############################
-        bedtools_gfile = preparebedtools(args.outdir, args.reference)
+        bedtools_gfile = preparebedtools(args.outdir, countsfile)
         bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
         coverage = computetotalcoverage(bedgraph)
 
-        # GCF and HGF consideration:
-        TPM = familycorrect(TPM, args.family)
-        RPKM = familycorrect(RPKM, args.family)
-        raw = familycorrect(raw, args.family)
-        coverage = familycorrect(coverage, args.family)
+        if args.bigscape_families:
+            coverage = correct_coverage(coverage, countsfile)
+            # GCF and HGF consideration:
+            TPM = familycorrect(TPM, BGCF)
+            RPKM = familycorrect(RPKM, BGCF)
+            raw = familycorrect(raw, BGCF)
+            coverage = familycorrect(coverage, BGCF)
+        else:
+            TPM = familycorrect(TPM, family)
+            RPKM = familycorrect(RPKM, family)
+            raw = familycorrect(raw, family)
+            coverage = familycorrect(coverage, family)
 
         ##############################
         # saving results in one dictionary
@@ -827,32 +958,43 @@ def main():
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
         results[f"{sample}.cov"] = [coverage[k] for k in RPKM.keys()]
-        results["gene_clusters"] = list(RPKM.keys()) # add gene clusters as well
+        results["gene_clusters"] = list(RPKM.keys())  # add gene clusters as well
 
         ##############################
         # Core calculation
         ##############################
         if args.corecalculation:
-            sortb = extractcorefrombam( sortb, args.outdir, args.corecalculation)
-            indexbam( sortb, args.outdir)
+            sortb = extractcorefrombam(sortb, args.outdir, bed_file)
+            indexbam(sortb, args.outdir)
             countsfile = countbam(sortb, args.outdir)
-            core_TPM =  calculateTPM(countsfile)
+            if args.bigscape_families:
+                countsfile = correct_counts(countsfile, BGCF)
+
+            core_TPM = calculateTPM(countsfile)
             core_RPKM = calculateRPKM(countsfile)
             core_raw = parserawcounts(countsfile)
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir, sortb)
-            core_coverage = computecorecoverage(core_bedgraph, args.corecalculation)
+            core_coverage = computecorecoverage(core_bedgraph, bed_file)
+            if args.bigscape_families:
+                core_coverage = correct_coverage(core_coverage, countsfile)
             # GCF and HGF consideration:
-            core_TPM = familycorrect(core_TPM, args.family)
-            core_RPKM = familycorrect(core_RPKM, args.family)
-            core_raw = familycorrect(core_raw, args.family)
-            core_coverage = familycorrect(core_coverage, args.family)
-            #core_coverage = computetotalcoverage(core_bedgraph)
+            if args.bigscape_families:
+                core_TPM = familycorrect(core_TPM, BGCF)
+                core_RPKM = familycorrect(core_RPKM, BGCF)
+                core_raw = familycorrect(core_raw, BGCF)
+                core_coverage = familycorrect(core_coverage, BGCF)
+            else:
+                core_TPM = familycorrect(core_TPM, family)
+                core_RPKM = familycorrect(core_RPKM, family)
+                core_raw = familycorrect(core_raw, family)
+                core_coverage = familycorrect(core_coverage, family)
+
+            # core_coverage = computetotalcoverage(core_bedgraph)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRAW"] = [core_raw[k] for k in core_RPKM.keys()]
             results[f"{sample}.corecov"] = [core_coverage[k] if "GC_DNA--" in k else 0 for k in core_RPKM.keys()]
-            
 
     ##############################
     # writing results file: pandas
@@ -861,7 +1003,7 @@ def main():
     df = pd.DataFrame(results)
     df.set_index("gene_clusters", inplace=True)
     df.to_csv(f"{args.outdir}BiG-MAP.map.results.ALL.csv")
-    
+
     # writing RPKM (core) filtered results
     headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
     df_RPKM = df[headers_RPKM]
@@ -892,10 +1034,10 @@ def main():
                 biomdict = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
             else:
                 biomfile = export2biom(args.outdir)
-                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)    
+                biomdict = decoratebiom(biomfile, args.outdir, args.biom_output)
         except(EOFError):
             biomfile = export2biom(args.outdir)
-    
+
     # writing mapping percentages for each sample to csv
     mapping_percentages = parse_perc(args.outdir)
     df_perc = pd.DataFrame(mapping_percentages)
@@ -914,6 +1056,7 @@ def main():
     movetodir(args.outdir, "csv-results", ".csv")
     movetodir(args.outdir, "csv-results", ".txt")
     movetodir(args.outdir, "biom-results", ".biom")
-    
+
+
 if __name__ == "__main__":
     main()
