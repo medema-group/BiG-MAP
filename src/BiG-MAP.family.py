@@ -413,7 +413,6 @@ def calculate_medoid(outdir, cut_off, med={}):
         # Create a dictionary using the medoid as key and the family_members as values
         dict_medoids[family_members[family_name][medoid_index]] = family_members[family_name]
 
-    #print("medoids = ", dict_medoids)
     return(dict_medoids)
 
 def add_new_gene(distance_matrix, gene_list, gene):
