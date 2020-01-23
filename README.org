@@ -93,7 +93,7 @@ SRR5983275
 The main purpose of this script is to compute GCFs and HGFs using
 sequence similarity as sole metric. For GCF computation, protein
 sequences are used while for the HGF computation DNA sequences are
-used. FastANI is implemented to compute the GCFs and HGFs. The input
+used. Mash is implemented to compute the GCFs and HGFs. The input
 consists of the output directories of anti- or gutSMASH. Options can
 be investigated by running the /-h/ flag. General usage is:
 #+BEGIN_EXAMPLE
@@ -198,7 +198,7 @@ python3 BiG-MAP.analyse.py test -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metag
 - Python 3+
 - R statistics
 - fastq-dump
-- fastANI
+- Mash
 - HMMer
 - Bowtie2
 - Samtools
