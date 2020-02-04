@@ -1,4 +1,4 @@
-# ! usr/bin/env python3
+# ! /usr/bin/env python3
 
 """
 --------------- MGC/BGC module ---------------
@@ -296,18 +296,21 @@ def make_sketch(outdir, threads, option="GC"):
     returns
     ----------
     """
-    try:
-        if option == "GC":
-            cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}GC_PROT*"
-            res_download = subprocess.check_output(cmd_mash, shell=True)
-        elif option == "HG":
-            cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}HG_PROT*"
-            res_download = subprocess.check_output(cmd_mash, shell=True)
-    except(subprocess.CalledProcessError):
-        # Raise error here for error table
-        pass
-    return ()
+    with open (f"{outdir}log.file", "wb") as log_file:
+        try:
+            if option == "GC":
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}GC_PROT*"
+                res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
+                log_file.write(res_download)
 
+            elif option == "HG":
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}HG_PROT*"
+                res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
+                log_file.write(res_download)
+
+        except(subprocess.CalledProcessError):
+            # Raise error here for error table
+            pass
 
 def calculate_distance(outdir):
     """
@@ -1048,6 +1051,18 @@ def main():
     # Mash: similarity
     ################################
     make_sketch(args.outdir, args.threads)
+    #checks the output of the mash sketch
+    check_mash = False
+    with open (f"{args.outdir}log.file", "rb") as log_file:
+        while check_mash == False:
+            for line in log_file:
+                line = str(line.strip())
+                if "ERROR" in line:
+                    make_sketch(args.outdir, args.threads)
+                else:
+                    check_mash = True  
+                    pass
+
     calculate_distance(args.outdir)
 
 
@@ -1098,6 +1113,17 @@ def main():
     # housekeeping genes: Redundancy filtering
     ################################
     make_sketch(args.outdir, args.threads, "HG")
+    #checks the output of the mash sketch
+    check_mash = False
+    with open (f"{args.outdir}log.file", "rb") as log_file:
+        while check_mash == False:
+            for line in log_file:
+                line = str(line.strip())
+                if "ERROR" in line:
+                    make_sketch(args.outdir, args.threads)
+                else:
+                    check_mash = True  
+                    pass
     calculate_distance(args.outdir)
 
     GCFs_ALL = calculate_medoid(args.outdir, args.treshold_GC, GCFs)
@@ -1145,6 +1171,7 @@ def main():
     purge(args.outdir, ".fasta")
     purge(args.outdir, ".txt")
     purge(args.outdir, ".faa")
+    purge(args.outdir, "log.file")
 
 
 if __name__ == "__main__":
