@@ -1,0 +1,35 @@
+
+*** These modified files were found in JOE when it aborted on Tue Feb  4 16:31:40 2020
+*** JOE was aborted because the terminal closed
+
+*** File '* Build Log *'
+
+*** File '/home/augus011/BiG-MAP2/BiG-MAP/.git/COMMIT_EDITMSG'
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch master
+# Your branch is behind 'origin/master' by 4 commits, and can be fast-forwarded.
+#   (use "git pull" to update your local branch)
+#
+# Changes to be committed:
+#	modified:   BiG-MAP.analyse.py
+#	modified:   BiG-MAP.download.py
+#	modified:   BiG-MAP.family.py
+#	modified:   BiG-MAP.map.py
+#
+Solve bugs
+
+*** File '(Unnamed)'
+/home/augus011/geneminers/.git/MERGE_MSG
+/home/augus011/geneminers/.git/MERGE_MSG
+/home/augus011/test/BiG-MAP/.git/MERGE_MSG
+/home/augus011/BiG-MAP2/BiG-MAP/.git/COMMIT_EDITMSG
+* Build Log *
+
+*** File '* Startup Log *'
+Processing '/etc/joe/editorrc'...
+Processing '/etc/joe/ftyperc'...
+Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc

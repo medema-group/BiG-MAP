@@ -85,15 +85,17 @@ ______________________________________________________________________
     parser.add_argument("-D", "--indir", help=argparse.SUPPRESS, nargs="+", required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-tg", "--treshold_GC", help=argparse.SUPPRESS,
-                       required=False, default=0.6, type=float)
+                       required=False, default=0.2, type=float)
     parser.add_argument("-th", "--treshold_HG", help=argparse.SUPPRESS,
-                       required=False, default=0.8, type=float)
+                       required=False, default=0.2, type=float)
     parser.add_argument("-f", "--flank_genes",
                        help=argparse.SUPPRESS, required=False, type=int, default=0)
     parser.add_argument("-g", "--genomefiles",
                        help=argparse.SUPPRESS, required=False, type=bool, default=False)
     parser.add_argument("-b", "--bigscape_path", help=argparse.SUPPRESS, default=False)
     parser.add_argument("-pf", "--pfam", help=argparse.SUPPRESS, default=False)
+    parser.add_argument("-c", "--cut-off", help=argparse.SUPPRESS, 
+                       type=float, default= 0.2)
     parser.add_argument("-p", "--threads", help=argparse.SUPPRESS,
                        type=int, required=False, default=6)
     return (parser.parse_args())
@@ -770,8 +772,8 @@ def getgenefromgbk(gbkfile, location):  # change to work with locations
     scaff_number = int(scaff_number)
 
     # Making the FeatureLocation
-    f_start = BeforePosition(start) if "<" in start else ExactPosition(start)
-    f_end = AfterPosition(end) if ">" in end else ExactPosition(end)
+    f_start = BeforePosition(start.strip("<")) if "<" in start else ExactPosition(start)
+    f_end = AfterPosition(end.strip(">")) if ">" in end else ExactPosition(end)
     f = FeatureLocation(f_start, f_end, int(strand))
 
     gbkcontents = SeqIO.parse(gbkfile, "genbank")
@@ -854,7 +856,7 @@ def list_representatives(GCF_dict):
 ######################################################################
 # Running BiG-SCAPE
 ######################################################################
-def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores):
+def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     """Runs BiG-SCAPE
     Parameters
     ----------
@@ -873,7 +875,7 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores):
     gbk_files = os.path.join(f"{outdir}gbk_files")
     try:
         cmd_bigscape = f"python3 {path_to_bigscape}bigscape.py -i {gbk_files} -o {output_dir} -c {cores} \
-        --pfam_dir {pfamfiles} --clans-off --hybrids-off --mibig"
+        --pfam_dir {pfamfiles} --cutoffs {cut_off} --clans-off --hybrids-off --mibig"
         subprocess.check_output(cmd_bigscape, shell=True)
     except(subprocess.CalledProcessError):
         pass  # raise error here
@@ -1051,17 +1053,12 @@ def main():
     ################################
     make_sketch(args.outdir, args.threads)
     #checks the output of the mash sketch
-    check_mash = False
     with open (f"{args.outdir}log.file", "rb") as log_file:
-        while check_mash == False:
-            for line in log_file:
-                line = str(line.strip())
-                if "ERROR" in line:
-                    make_sketch(args.outdir, args.threads)
-                else:
-                    check_mash = True  
-                    pass
-
+        for i in range(3):
+            if "ERROR" in log_file:
+                make_sketch(args.outdir, args.threads)
+            else:
+                break
     calculate_distance(args.outdir)
 
 
@@ -1113,16 +1110,12 @@ def main():
     ################################
     make_sketch(args.outdir, args.threads, "HG")
     #checks the output of the mash sketch
-    check_mash = False
     with open (f"{args.outdir}log.file", "rb") as log_file:
-        while check_mash == False:
-            for line in log_file:
-                line = str(line.strip())
-                if "ERROR" in line:
-                    make_sketch(args.outdir, args.threads)
-                else:
-                    check_mash = True  
-                    pass
+        for i in range(3):
+            if "ERROR" in log_file:
+                make_sketch(args.outdir, args.threads)
+            else:
+                break
     calculate_distance(args.outdir)
 
     GCFs_ALL = calculate_medoid(args.outdir, args.treshold_GC, GCFs)
@@ -1148,7 +1141,7 @@ def main():
             for gbk_file in retrieveclusterfiles(files):
                 movegbk(args.outdir, gbk_file, list_gbkfiles)
         print("__________Running BiG-SCAPE________________")
-        run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads)
+        run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
 
         for tsv_file in retrieve_bigscapefiles(args.outdir):
             parsed = parse_bigscape_result(tsv_file)
