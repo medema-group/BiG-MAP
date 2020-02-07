@@ -301,12 +301,12 @@ def make_sketch(outdir, threads, option="GC"):
     with open (f"{outdir}log.file", "wb") as log_file:
         try:
             if option == "GC":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}GC_PROT*"
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 10000 -a {outdir}GC_PROT*"
                 res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
                 log_file.write(res_download)
 
             elif option == "HG":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 4500 -a {outdir}HG_PROT*"
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 4 -p {threads} -s 1000 -a {outdir}HG_PROT*"
                 res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
                 log_file.write(res_download)
 
@@ -314,7 +314,7 @@ def make_sketch(outdir, threads, option="GC"):
             # Raise error here for error table
             pass
 
-def calculate_distance(outdir):
+def calculate_distance(outdir, output_file="mash_output_GC.tab"):
     """
     Calculates the distance between the query fasta files
     stored in the sketch file by using mash.
@@ -326,8 +326,9 @@ def calculate_distance(outdir):
     ----------
     """
     infile = f"{outdir}mash_sketch.msh"
+    outfile = f"{outdir}{output_file}"
     try:
-        cmd_mash = f"mash dist {infile} {infile} > {outdir}mash_output.tab"
+        cmd_mash = f"mash dist {infile} {infile} > {outfile}"
         res_download = subprocess.check_output(cmd_mash, shell=True)
 
     except(subprocess.CalledProcessError):
@@ -338,7 +339,7 @@ def calculate_distance(outdir):
 ######################################################################
 # Extracting LSH clusters (buckets) using cut-off & calculate medoid
 ######################################################################
-def calculate_medoid(outdir, cut_off, med={}):
+def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
     """
     calculates the GCFs based on similarity treshold
     parameters and calculates the medoid of that GCF
@@ -358,7 +359,7 @@ def calculate_medoid(outdir, cut_off, med={}):
     family_distance_matrices = {}
     dict_medoids = med
 
-    infile = f"{outdir}mash_output.tab"
+    infile = f"{outdir}{input_file}"
 
     with open(infile, "r") as input:
         for line in input:
@@ -418,7 +419,7 @@ def calculate_medoid(outdir, cut_off, med={}):
         # Create a dictionary using the medoid as key and the family_members as values
         dict_medoids[family_members[family_name][medoid_index]] = family_members[family_name]
 
-    return(dict_medoids)
+    return(dict_medoids, family_distance_matrices)
 
 def add_new_gene(distance_matrix, gene_list, gene):
     """
@@ -1065,7 +1066,7 @@ def main():
     ###############################
     # LSH buckets clustering
     ###############################
-    GCFs = calculate_medoid(args.outdir, args.treshold_GC)
+    GCFs, distance_matrix = calculate_medoid(args.outdir, args.treshold_GC)
 
     print("___________Adding housekeeping genes________________")
 
@@ -1116,14 +1117,16 @@ def main():
                 make_sketch(args.outdir, args.threads)
             else:
                 break
-    calculate_distance(args.outdir)
+    calculate_distance(args.outdir, "mash_output_HG.tab")
 
-    GCFs_ALL = calculate_medoid(args.outdir, args.treshold_GC, GCFs)
+    GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_GC, GCFs, "mash_output_HG.tab")
     fastadict_ALL = makefastaheadersim(GCFs_ALL)
 
     # Writing results to outdir
     #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
     writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
+    writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
+    writejson(distance_matrix_ALL, args.outdir, "BiG-MAP.dist_HG")
     fasta_file = writeGCFfasta(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF.fna")
 
     # Remembering the enzymatic gene locations
