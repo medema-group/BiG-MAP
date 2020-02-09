@@ -1,7 +1,7 @@
 * The Biosynthetic Gene cluster Meta'omics abundance Profiler (BiG-MAP)
 #+CAPTION: The pipelene of all the modules combined
 #+NAME: BiG-MAP.fig_1
-[[https://github.com/KoenvdBerg/BiG-MAP/blob/master/Pipeline_overview.png]]
+[[https://github.com/HAugustijn/BiG-MAP2/blob/master/Pipeline_overview.png]]
 
 This is the Github repository for the Biosynthetic Gene cluster
 Meta'omics abundance Profiler (BiG-MAP). For the analysis of bacterial
