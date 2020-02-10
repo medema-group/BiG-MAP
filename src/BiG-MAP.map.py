@@ -352,15 +352,15 @@ def correct_counts(countsfile, family):
         with open(countsfile, "r") as counts:
             for line in counts:
                 cluster, length, nreads, nnoreads = line.strip().split("\t")
-                for key in GCF_dict.keys():
+                for key in family.keys():
 
                     # If the BiG-SCAPE family is larger than 1, adjust the number of family members
-                    if cluster == key and len(GCF_dict[key]) > 1:
-                        adj_key, number = correct_family_size(cluster, key, nreads, GCF_dict)
+                    if cluster == key and len(family[key]) > 1:
+                        adj_key, number = correct_family_size(cluster, key, nreads, family)
                         counts_adj.write(f"{adj_key}\t{length}\t{number}\t{nnoreads}\n")
 
                     # The BiG-SCAPE family size is equal to 1, no correction is needed
-                    elif cluster == key and len(GCF_dict[key]) == 1:
+                    elif cluster == key and len(family[key]) == 1:
                         counts_adj.write(f"{key}\t{length}\t{nreads}\t{nnoreads}\n")
 
                     # The cluster is already in another family
