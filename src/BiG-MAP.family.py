@@ -406,6 +406,9 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
                             family_by_gene[gene1] = family_name
                             add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2, gene1,
                                                 float(distance))
+    for gene in family_members.keys():
+        if family_members[gene] == []:
+            family_members[gene].append(gene)
 
     # For each family: Build a distance matrix, and then work out the mediod
     for family_name in family_members.keys():
