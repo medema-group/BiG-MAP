@@ -301,7 +301,7 @@ def make_sketch(outdir, threads, option="GC"):
     with open (f"{outdir}log.file", "wb") as log_file:
         try:
             if option == "GC":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 10000 -a {outdir}GC_PROT*"
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 20000 -a {outdir}GC_PROT*"
                 res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
                 log_file.write(res_download)
 
@@ -1119,7 +1119,7 @@ def main():
                 break
     calculate_distance(args.outdir, "mash_output_HG.tab")
 
-    GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_GC, GCFs, "mash_output_HG.tab")
+    GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
     fastadict_ALL = makefastaheadersim(GCFs_ALL)
 
     # Writing results to outdir
