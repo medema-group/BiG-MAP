@@ -85,9 +85,9 @@ ______________________________________________________________________
     parser.add_argument("-D", "--indir", help=argparse.SUPPRESS, nargs="+", required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-tg", "--treshold_GC", help=argparse.SUPPRESS,
-                       required=False, default=0.2, type=float)
+                       required=False, default=0.8, type=float)
     parser.add_argument("-th", "--treshold_HG", help=argparse.SUPPRESS,
-                       required=False, default=0.2, type=float)
+                       required=False, default=0.1, type=float)
     parser.add_argument("-f", "--flank_genes",
                        help=argparse.SUPPRESS, required=False, type=int, default=0)
     parser.add_argument("-g", "--genomefiles",
@@ -354,12 +354,11 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
     """
     # Parse the input into a dictionary of gene families
     family_by_gene = {}
+    family_by_gene_filtered = {}
     family_members = {}
     family_distance_matrices = {}
     dict_medoids = med
-
     infile = f"{outdir}{input_file}"
-
     with open(infile, "r") as input:
         for line in input:
             # Skip lines starting with '#'
@@ -367,7 +366,8 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
                 continue
             # Split into tab-separated elements
             gene1, gene2, distance, number2, overlap = line.strip().split('\t')
-
+            no1, no2 = overlap.split("/")
+            overlap = 1-(float(no1)/float(no2))
             # Look up the family of the first gene
             if gene2 in family_by_gene.keys():
                 family_name = family_by_gene[gene2]
@@ -376,48 +376,44 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
                 family_by_gene[gene2] = family_name
                 family_members[family_name] = []
                 family_distance_matrices[family_name] = []
-
-            # check if genes are already part of another family
-            if gene1 not in family_members:
-                if family_members.values():
-                    present = any(gene1 in e for e in list(family_members.values()))
-                    if not present:
-                        if not float(distance) <= cut_off:
-                            # gene1 doesn't overlap at all, so gene1 is put into a separate family
-                            if gene1 in family_by_gene.keys():
-                                if family_by_gene[gene1] == family_name:
-                                    # gene1 is in our family, so record the distance
-                                    add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2,
-                                                        gene1, float(distance))
-                                else:
-                                    # gene1 is above cut off or doesn't belong to the family
-                                    pass
-                            else:
-                                # gene1 doesn't have a family yet, make one
-                                gene1_family_name = gene1
-                                family_by_gene[gene1] = gene1_family_name
-                                family_members[gene1_family_name] = []
-                                family_distance_matrices[gene1_family_name] = []
-                                # insert gene1 into that family as only member, with a distance of 0
-                                add_to_distance_matrix(family_distance_matrices[gene1_family_name], family_members[gene1_family_name],
-                                                    gene1, gene1, float(distance))
-                        else:
-                            # There is some overlap, and we want gene1 in this family
-                            family_by_gene[gene1] = family_name
-                            add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2, gene1,
-                                                float(distance))
-    for gene in family_members.keys():
-        if family_members[gene] == []:
-            family_members[gene].append(gene)
-
+            # filter genes that are already part of another family
+            if gene2 == family_by_gene[gene2]:
+                family_by_gene_filtered[gene2] = family_by_gene[gene2]
+            # If gene1 and gene2 don't overlap, then there are two options:
+            # 1. gene1 and gene2 do belong to the same family, and the "not overlap" is "odd"
+            #    in this case we accept gene2 into our family
+            # 2. gene1 and gene2 actually belong to different families, and we might have to create that family
+            if not overlap <= cut_off:
+                # gene1 doesn't overlap at all, so put that one into a separate family
+                if gene1 in family_by_gene.keys():
+                    if family_by_gene[gene1] == family_name:
+                        # gene1 is in our family, so record the distance
+                        add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2,
+                                            gene1, float(distance))
+                    else:
+                        # gene is above cut off or doesn't belong to the family
+                        pass
+                else:
+                    # gene1 doesn't have a family yet, make one
+                    gene1_family_name = gene1
+                    family_by_gene[gene1] = gene1_family_name
+                    family_members[gene1_family_name] = []
+                    family_distance_matrices[gene1_family_name] = []
+                    # insert gene1 into that family as only member, with a distance of 0
+                    add_to_distance_matrix(family_distance_matrices[gene1_family_name], family_members[gene1_family_name],
+                                        gene1, gene1, float(distance))
+            else:
+                # There is some overlap, and we want gene1 in this family
+                family_by_gene[gene1] = family_name
+                add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2, gene1,
+                                    float(distance))
     # For each family: Build a distance matrix, and then work out the mediod
-    for family_name in family_members.keys():
+    for family_name in family_by_gene_filtered.keys():
         # Calculate the mediod from the distances
         np_array = numpy.asarray(family_distance_matrices[family_name])
         medoid_index = numpy.argmin(np_array.sum(axis=0))
         # Create a dictionary using the medoid as key and the family_members as values
         dict_medoids[family_members[family_name][medoid_index]] = family_members[family_name]
-
     return(dict_medoids, family_distance_matrices)
 
 def add_new_gene(distance_matrix, gene_list, gene):
@@ -1053,12 +1049,13 @@ def main():
     ################################
     make_sketch(args.outdir, args.threads)
     #checks the output of the mash sketch
-    with open (f"{args.outdir}log.file", "rb") as log_file:
-        for i in range(3):
-            if "ERROR" in log_file:
-                make_sketch(args.outdir, args.threads)
-            else:
-                break
+    with open (f"{args.outdir}log.file", "r") as log_file:
+        for i in range(10):
+            for line in log_file:
+                if "ERROR" in line:
+                    make_sketch(args.outdir, args.threads)
+                else:
+                    break
     calculate_distance(args.outdir)
 
 
@@ -1110,12 +1107,13 @@ def main():
     ################################
     make_sketch(args.outdir, args.threads, "HG")
     #checks the output of the mash sketch
-    with open (f"{args.outdir}log.file", "rb") as log_file:
-        for i in range(3):
-            if "ERROR" in log_file:
-                make_sketch(args.outdir, args.threads)
-            else:
-                break
+    with open (f"{args.outdir}log.file", "r") as log_file:
+        for i in range(10):
+            for line in log_file:
+                if "ERROR" in line:
+                    make_sketch(args.outdir, args.threads)
+                else:
+                    break
     calculate_distance(args.outdir, "mash_output_HG.tab")
 
     GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
@@ -1166,7 +1164,7 @@ def main():
     purge(args.outdir, ".fasta")
     purge(args.outdir, ".txt")
     purge(args.outdir, ".faa")
-    purge(args.outdir, "log.file")
+    #purge(args.outdir, "log.file")
 
 
 if __name__ == "__main__":
