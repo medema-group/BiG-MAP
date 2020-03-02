@@ -1048,7 +1048,6 @@ def main():
             if not orgID in absolute_locs:
                 absolute_locs[orgID] = []
             absolute_locs[orgID].append({fasta_header_DNA: abs_locs})
-    quit()
 
     ################################
     # Mash: similarity
