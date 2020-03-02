@@ -41,6 +41,8 @@ from pathlib import Path
 import numpy as numpy
 from Bio.SeqFeature import FeatureLocation, ExactPosition, BeforePosition, AfterPosition
 import pickle
+import time
+from subprocess import Popen, PIPE
 
 import shutil
 
@@ -217,6 +219,7 @@ def parsegbkcluster(infile, nflank):
         organism = "_".join(organism.split(",")[0].split()[:-1])
         organism = organism.replace("(", "")
         organism = organism.replace(")", "")
+        organism = organism.replace("/", "-")
     return (DNA, "".join(proteins), ":".join(GCs), organism, core_relative_locs, absolute_locs)
 
 
@@ -301,14 +304,16 @@ def make_sketch(outdir, threads, option="GC"):
     with open (f"{outdir}log.file", "wb") as log_file:
         try:
             if option == "GC":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 10000 -a {outdir}GC_PROT*"
-                res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
-                log_file.write(res_download)
+                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 5000 -a {outdir}GC_PROT*"
+                p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
+                stdout, stderr = p.communicate()
+                log_file.write(stderr)
 
             elif option == "HG":
                 cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 4 -p {threads} -s 1000 -a {outdir}HG_PROT*"
-                res_download = subprocess.check_output(cmd_mash, shell=True, stderr=subprocess.STDOUT)
-                log_file.write(res_download)
+                p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
+                stdout, stderr = p.communicate()
+                log_file.write(stderr)
 
         except(subprocess.CalledProcessError):
             # Raise error here for error table
@@ -1043,19 +1048,28 @@ def main():
             if not orgID in absolute_locs:
                 absolute_locs[orgID] = []
             absolute_locs[orgID].append({fasta_header_DNA: abs_locs})
+    quit()
 
     ################################
     # Mash: similarity
     ################################
+
     make_sketch(args.outdir, args.threads)
+
     #checks the output of the mash sketch
-    with open (f"{args.outdir}log.file", "r") as log_file:
-        for i in range(10):
-            for line in log_file:
-                if "ERROR" in line:
-                    make_sketch(args.outdir, args.threads)
-                else:
-                    break
+    reruns = 0
+    total_reruns = 25
+    for i in range(total_reruns):
+        with open (f"{args.outdir}log.file", "r") as log_file:
+            if "ERROR" in log_file.read():
+                make_sketch(args.outdir, args.threads)
+                reruns += 1
+                print("Encountered error in making sketch file. Retry attempt:", reruns)
+                if reruns == total_reruns:
+                    sys.exit("Maximum number of reruns is reached. Try increasing the number of reruns, or decrease the amount of input data.")
+            else:
+                break
+
     calculate_distance(args.outdir)
 
 
@@ -1105,15 +1119,20 @@ def main():
     ################################
     # housekeeping genes: Redundancy filtering
     ################################
+
     make_sketch(args.outdir, args.threads, "HG")
-    #checks the output of the mash sketch
-    with open (f"{args.outdir}log.file", "r") as log_file:
-        for i in range(10):
-            for line in log_file:
-                if "ERROR" in line:
-                    make_sketch(args.outdir, args.threads)
-                else:
-                    break
+    reruns = 0
+    total_reruns = 25
+    for i in range(total_reruns):
+        with open (f"{args.outdir}log.file", "r") as log_file:
+            if "ERROR" in log_file.read():
+                make_sketch(args.outdir, args.threads, "HG")
+                reruns += 1
+                print("Encountered error in making sketch file. Retry attempt:", reruns)
+                if reruns == total_reruns:
+                    sys.exit("Maximum number of reruns is reached. Try increasing the number of reruns, or decrease the amount of input data.")
+            else:
+                break
     calculate_distance(args.outdir, "mash_output_HG.tab")
 
     GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
@@ -1164,7 +1183,7 @@ def main():
     purge(args.outdir, ".fasta")
     purge(args.outdir, ".txt")
     purge(args.outdir, ".faa")
-    #purge(args.outdir, "log.file")
+    purge(args.outdir, "log.file")
 
 
 if __name__ == "__main__":
