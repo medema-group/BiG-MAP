@@ -133,7 +133,7 @@ from the GCFs and HGFs, and correct for the BiG-SCAPE GCFs, run:
 
 *NOTE*: It is important for downstream analysis to also use the /-b/ flag. 
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.map.py -f False -s fast -th 10 -b /mnt/scratch/usr001/results/schirmer_metadata.txt -cc /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.bed -R /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.fna -I1 /mnt/scratch/usr001/fastq/schirmer/*pass_1* -I2 /mnt/scratch/usr001/fastq/schirmer/*pass_2* -O /mnt/scratch/usr001/results/ -F /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.json -bf /mnt/scratch/usr001/results/BiG-MAP.GCF.json
+python3 BiG-MAP.map.py -f False -s fast -th 10 -b /mnt/scratch/usr001/results/schirmer_metadata.txt -cc /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.bed -R /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.fna -I1 /mnt/scratch/usr001/fastq/schirmer/*pass_1* -I2 /mnt/scratch/usr001/fastq/schirmer/*pass_2* -O /mnt/scratch/usr001/results/ -F /mnt/scratch/usr001/results/BiG-MAP.GCF_HGF.json -bf /mnt/scratch/usr001/results/BiG-MAP.dist_GC.json
 
 the schirmer_metadata.txt is set up as follows (tab-delimited):
 #run.ID         host.ID	        SampleType	     DiseaseStatus
