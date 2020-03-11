@@ -249,9 +249,8 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     orgID = infile.split("/")[-1].split(".")[0]
     versionno = infile.split("/")[-1].split(".")[1]
     orgID = orgID[8:] if 'PROT' in orgID else orgID  # For housekeeping orgIDs
-    organism2 = organism.replace('/', '')
-    Outfile = f"{outdir}{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism2}.{regionno}.fasta"
-    fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism2}--SMASHregion={regionno}"
+    Outfile = f"{outdir}{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.{regionno}.fasta"
+    fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
     if not os.path.exists(Outfile):
         with open(Outfile, "w") as o:
