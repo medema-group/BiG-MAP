@@ -106,7 +106,7 @@ that are present in the gut, with a Mash treshold of 0.1 for GFCs
 and 0.1 for HGFs, no flanking genes of the core, no genome fasta file
 outputs, 6 process cores and making use of the additional BiG-SCAPE redundancy filtering step:
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.family.py -tg 0.1 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/  -O /mnt/scratch/usr001/results/
+python3 BiG-MAP.family.py -tg 0.8 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/  -O /mnt/scratch/usr001/results/
 
 This yields:
 BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py
