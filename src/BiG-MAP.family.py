@@ -68,10 +68,10 @@ Obligatory arguments:
 Options:
     -tg  Fraction between 0 and 1; the similarity treshold that
          determines when the protein sequences of the gene clusters
-         can be considered similar. Default = 0.6.
+         can be considered similar. Default = 0.8.
     -th  Fraction between 0 and 1; the similarity treshold that
          determines when the protein sequences of the housekeeping genes
-         can be considered similar. Default = 0.8
+         can be considered similar. Default = 0.1
     -f   Specify here the number of genes that are flanking the core
          genes of the gene cluster. 0 --> only the core, n --> n
          genes included that flank the core. default = 0
@@ -1065,7 +1065,7 @@ def main():
                 reruns += 1
                 print("Encountered error in making sketch file. Retry attempt:", reruns)
                 if reruns == total_reruns:
-                    sys.exit("Maximum number of reruns is reached. Try increasing the number of reruns, or decrease the amount of input data.")
+                    sys.exit("Maximum number of reruns is reached. Try decreasing the number of cores (-p flag).")
             else:
                 break
 
