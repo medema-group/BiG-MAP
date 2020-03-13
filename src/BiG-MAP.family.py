@@ -29,7 +29,7 @@ optionally bigscape GCF clusters. Dependencies: BioPython, awk
 """
 
 # Import statements
-import os.path
+import os
 import subprocess
 from sys import argv
 import sys
@@ -252,7 +252,9 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     orgID = infile.split("/")[-1].split(".")[0]
     versionno = infile.split("/")[-1].split(".")[1]
     orgID = orgID[8:] if 'PROT' in orgID else orgID  # For housekeeping orgIDs
-    Outfile = f"{outdir}{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.{regionno}.fasta"
+   # Outfile = os.path.join(path, outdir, cluster, seqstype, orgID, organism, regionno '')
+    file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.{regionno}.fasta"
+    Outfile = os.path.join(outdir, file_name)
     fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
     if not os.path.exists(Outfile):
@@ -304,16 +306,21 @@ def make_sketch(outdir, threads, option="GC"):
     returns
     ----------
     """
-    with open (f"{outdir}log.file", "wb") as log_file:
+    outlogfile = os.path.join(outdir, 'log.file')
+    with open (outlogfile, "wb") as log_file:
         try:
             if option == "GC":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 16 -p {threads} -s 5000 -a {outdir}GC_PROT*"
+                outfile = os.path.join(outdir, 'mash_sketch')
+                inp = os.path.join(outdir, 'GC_PROT*')
+                cmd_mash = f"mash sketch -o {outfile} -k 16 -p {threads} -s 5000 -a {inp}"
                 p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
                 stdout, stderr = p.communicate()
                 log_file.write(stderr)
 
             elif option == "HG":
-                cmd_mash = f"mash sketch -o {outdir}mash_sketch -k 4 -p {threads} -s 1000 -a {outdir}HG_PROT*"
+                outfile = os.path.join(outdir, 'mash_sketch')
+                inp = os.path.join(outdir, 'HG_PROT*')
+                cmd_mash = f"mash sketch -o {outfile} -k 4 -p {threads} -s 1000 -a {inp}"
                 p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
                 stdout, stderr = p.communicate()
                 log_file.write(stderr)
@@ -333,8 +340,8 @@ def calculate_distance(outdir, output_file="mash_output_GC.tab"):
     returns
     ----------
     """
-    infile = f"{outdir}mash_sketch.msh"
-    outfile = f"{outdir}{output_file}"
+    infile = os.path.join(outdir, "mash_sketch.msh")
+    outfile = os.path.join(outdir,output_file)
     try:
         cmd_mash = f"mash dist {infile} {infile} > {outfile}"
         res_download = subprocess.check_output(cmd_mash, shell=True)
@@ -366,7 +373,7 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
     family_members = {}
     family_distance_matrices = {}
     dict_medoids = med
-    infile = f"{outdir}{input_file}"
+    infile = os.path.join(outdir, input_file)
     with open(infile, "r") as input:
         for line in input:
             # Skip lines starting with '#'
@@ -430,7 +437,8 @@ def add_new_gene(distance_matrix, gene_list, gene):
     ----------
     distance_matrix
         {fasta file name: distance matrix}
-    gene_list
+    gene_list:wq
+
         list, fasta file name
     gene
         fasta file name
@@ -487,7 +495,7 @@ def writeGCFfasta(sim_dict, outdir, outfile):
     outfile = name of the GCF fasta file in outdir
     """
     infiles = sim_dict.keys()
-    outfile = f"{outdir}{outfile}"
+    outfile = os.path.join(outdir, outfile)
     with open(outfile, "w") as fout:
         for fkey in infiles:
             n_repr = len(sim_dict[fkey])
@@ -564,7 +572,8 @@ def writejson(dictionary, outdir, outfile_name):
     outfile
         name and path of the output file
     """
-    outfile = f"{outdir}{outfile_name}.json"
+    
+    outfile = os.path.join(outdir, outfile_name + ".json")
     with open(outfile, "w") as w:
         w.write(json.dumps(dictionary, indent=4))
     return(outfile)
@@ -642,12 +651,14 @@ def gbktofasta(gbkfile, fastafile, outdir):
     fastalocation = Path(f"{sys.path[0]}")
     SeqIO.convert(gbkfile, "genbank", fastafile, "fasta")
     try:
-        os.mkdir(f"{outdir}genome_files")
+        os.mkdir(os.path.join(outdir, "genome_files"))
     except(FileExistsError):
         pass
     # Move files into new directory
-    shutil.move(fastafile, os.path.join(outdir, "genome_files"))
-
+    try:
+        shutil.move(fastafile, os.path.join(outdir, "genome_files"))
+    except:
+        pass
 
 ######################################################################
 # Housekeeping genes: HMMer
@@ -679,7 +690,7 @@ def prepareseqdb(genome_gbkfile, outdir):
     # recordnumber = 0
     scaff_number = -1
     gbkcontents = SeqIO.parse(genome_gbkfile, "genbank")
-    with open(f"{outdir}seqdb.faa", "w") as db:
+    with open(os.path.join(outdir, "seqdb.faa"), "w") as db:
         for record in gbkcontents:
             # recordnumber += 1
             scaff_number = int(record.name[-3:])
@@ -692,7 +703,7 @@ def prepareseqdb(genome_gbkfile, outdir):
     return (f"{outdir}seqdb.faa")
 
 
-def hmmsearch(seqdb, hmmfiles, hmmerpath, outdir):
+def hmmsearch(seqdb, hmmfiles, outdir):
     """searches the seqdb for housekeeping genes profiles
     seqdb
         string, name of the seqdb file
@@ -700,12 +711,12 @@ def hmmsearch(seqdb, hmmfiles, hmmerpath, outdir):
     ----------
     hmmoutput = filename of parsable hmmsearch output
     """
-    hmmoutput = f"{outdir}hmmoutput.result.txt"
+    hmmoutput = os.path.join(outdir, "hmmoutput.result.txt")
     try:
-        cmd_hmmsearch = f"{hmmerpath if hmmerpath else ''}hmmsearch --tblout {hmmoutput} {hmmfiles} {seqdb}"
+        cmd_hmmsearch = f"hmmsearch --tblout {hmmoutput} {hmmfiles} {seqdb}"
         res_hmmsearch = subprocess.check_output(cmd_hmmsearch, shell=True)
     except(subprocess.CalledProcessError):
-        pass  # raise error here
+        print("Unable to run hmmsearch")  # raise error here
     return (hmmoutput)
 
 
@@ -815,11 +826,11 @@ def movegbk(outdir, gbk_file, listoffiles):
     """
     # Make .gbk folder
     try:
-        os.mkdir(f"{outdir}gbk_files")
+        os.mkdir(os.path.join(outdir, "gbk_files"))
     except(FileExistsError):
         pass
     # Copy .gbk into new directory
-    path = os.path.join(f"{outdir}gbk_files")
+    path = os.path.join(outdir, "gbk_files")
     genome = gbk_file.split("/")[-1]
     for filename in listoffiles:
         if filename == genome:
@@ -875,8 +886,8 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     returns
     ----------
     """
-    output_dir = f"{outdir}bigscape_output"
-    gbk_files = os.path.join(f"{outdir}gbk_files")
+    output_dir = os.path.join(outdir, "bigscape_output")
+    gbk_files = os.path.join(outdir, "gbk_files")
     try:
         cmd_bigscape = f"python3 {path_to_bigscape}bigscape.py -i {gbk_files} -o {output_dir} -c {cores} \
         --pfam_dir {pfamfiles} --cutoffs {cut_off} --clans-off --hybrids-off --mibig"
@@ -898,7 +909,7 @@ def retrieve_bigscapefiles(outdir):
     returns
     ----------
     """
-    network_dir = F"{outdir}bigscape_output/network_files"
+    network_dir = os.path.join(outdir, "bigscape_output/network_files")
     try:
         for dirpath, dirnames, files in os.walk(network_dir):
             for filename in files:
@@ -991,7 +1002,7 @@ def pickle_files(GCF_dict, fasta_file, bed_file, outdir, BGCF_dict = ""):
     """
     fasta_dict = {}
     bed_list = []
-    outfile = open(f"{outdir}BiG-MAP.pickle", "wb")
+    outfile = open(os.path.join(outdir, "BiG-MAP.pickle"), "wb")
     with open (fasta_file, "r") as fasta_file:
         for seq in SeqIO.parse(fasta_file, 'fasta'):
             fasta_dict[seq.id] = seq.seq
@@ -1022,6 +1033,11 @@ def main():
     6) Optionally run second round of redundancy filtering
     """
     args = get_arguments()
+
+    try:
+        os.mkdir(args.outdir)
+    except:
+        pass
 
     print("___________Extracting fasta files___________________")
 
@@ -1062,9 +1078,10 @@ def main():
     reruns = 0
     total_reruns = 25
     for i in range(total_reruns):
-        with open (f"{args.outdir}log.file", "r") as log_file:
+        logfile_name = os.path.join(args.outdir, 'log.file')
+        with open (logfile_name, "r") as log_file:
             if "ERROR" in log_file.read():
-                make_sketch(args.outdir, args.threads)
+                make_sketch(args.outdir + os.sep, args.threads)
                 reruns += 1
                 print("Encountered error in making sketch file. Retry attempt:", reruns)
                 if reruns == total_reruns:
@@ -1072,13 +1089,13 @@ def main():
             else:
                 break
 
-    calculate_distance(args.outdir)
+    calculate_distance(args.outdir + os.sep)
 
 
     ###############################
     # LSH buckets clustering
     ###############################
-    GCFs, distance_matrix = calculate_medoid(args.outdir, args.treshold_GC)
+    GCFs, distance_matrix = calculate_medoid(args.outdir + os.sep, args.treshold_GC)
 
     print("___________Adding housekeeping genes________________")
 
@@ -1096,15 +1113,15 @@ def main():
 
         # find housekeeping genes for org using HMMer
         if organism not in processed:
-            seqdb = prepareseqdb(genomedict[orgID], args.outdir)
-            hmmresult = hmmsearch(seqdb, hmmfile, "", args.outdir)
+            seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
+            hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
             genelocs = parsehmmoutput(hmmresult)
             for gene, loc in genelocs.items():
                 prot_seq = getprotseqfromdb(seqdb, loc)
                 DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
                 f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", gene, organism, fname,
-                                                                 args.outdir)
-                f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", gene, organism, fname, args.outdir)
+                                                                 args.outdir + os.sep)
+                f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", gene, organism, fname, args.outdir + os.sep)
                 HG_prot_files.append(f_prot)
                 HG_DNA_files.append(f_DNA)
 
@@ -1115,20 +1132,21 @@ def main():
 
             # Convert genome.gbk --> genome.fasta and store in outdir
             if args.genomefiles:
-                gbktofasta(genomedict[orgID], f"{args.outdir}{organism}.fasta", args.outdir)
+                gbktofasta(genomedict[orgID], os.path.join(args.outdir, organism +".fasta"), args.outdir + os.sep)
         processed.append(organism)
 
     ################################
     # housekeeping genes: Redundancy filtering
     ################################
 
-    make_sketch(args.outdir, args.threads, "HG")
+    make_sketch(args.outdir + os.sep, args.threads, "HG")
     reruns = 0
     total_reruns = 25
     for i in range(total_reruns):
-        with open (f"{args.outdir}log.file", "r") as log_file:
+        inp_file = os.path.join(args.outdir, 'log.file')
+        with open (inp_file, "r") as log_file:
             if "ERROR" in log_file.read():
-                make_sketch(args.outdir, args.threads, "HG")
+                make_sketch(args.outdir + os.sep, args.threads, "HG")
                 reruns += 1
                 print("Encountered error in making sketch file. Retry attempt:", reruns)
                 if reruns == total_reruns:
@@ -1150,7 +1168,7 @@ def main():
 
     # Remembering the enzymatic gene locations
     GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
-    bed_file = locs2bedfile(GCF_enzyme_locs, f"{args.outdir}BiG-MAP.GCF_HGF.bed")
+    bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF_HGF.bed"))
     writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
 
     ###################################
