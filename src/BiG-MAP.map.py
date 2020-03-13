@@ -172,10 +172,10 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
             {sample_command}\
             -S {samfile}"  # The .sam file will contain only the map results for 1 sample
 
- #           print(f"the following command will be executed by bowtie2:\n\
-#_____________________________________________________\n\
-#{cmd_bowtie2_map}\n\
-#_____________________________________________________\n")
+            print(f"the following command will be executed by bowtie2:\n\
+_____________________________________________________\n\
+{cmd_bowtie2_map}\n\
+_____________________________________________________\n")
             res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr=subprocess.STDOUT)
             # Saving mapping percentage:
             with open(os.path.join(outdir, "bowtie2_log.txt"), "a+") as f:
