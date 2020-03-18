@@ -291,7 +291,7 @@ def locs2bedfile(indict, outfile):
 ######################################################################
 # similarity between gene clusters using MASH
 ######################################################################
-def make_sketch(outdir, threads, option="GC"):
+def make_sketch(outdir, option="GC"):
     """
     Calculates the distance between the query fasta files
     stored in the sketch file by using mash.
@@ -299,8 +299,6 @@ def make_sketch(outdir, threads, option="GC"):
     ----------
     outdir
         string, the path to output directory
-    threads
-        int, number of threads
     option
         string, either 'GC' for the gene clusters or 'HG' for the housekeeping genes
     returns
@@ -312,7 +310,7 @@ def make_sketch(outdir, threads, option="GC"):
             if option == "GC":
                 outfile = os.path.join(outdir, 'mash_sketch')
                 inp = os.path.join(outdir, 'GC_PROT*')
-                cmd_mash = f"mash sketch -o {outfile} -k 16 -p {threads} -s 5000 -a {inp}"
+                cmd_mash = f"mash sketch -o {outfile} -k 16 -p 1 -s 5000 -a {inp}"
                 p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
                 stdout, stderr = p.communicate()
                 log_file.write(stderr)
@@ -320,7 +318,7 @@ def make_sketch(outdir, threads, option="GC"):
             elif option == "HG":
                 outfile = os.path.join(outdir, 'mash_sketch')
                 inp = os.path.join(outdir, 'HG_PROT*')
-                cmd_mash = f"mash sketch -o {outfile} -k 4 -p {threads} -s 1000 -a {inp}"
+                cmd_mash = f"mash sketch -o {outfile} -k 4 -p 1 -s 1000 -a {inp}"
                 p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
                 stdout, stderr = p.communicate()
                 log_file.write(stderr)
@@ -1072,7 +1070,7 @@ def main():
     # Mash: similarity
     ################################
 
-    make_sketch(args.outdir, args.threads)
+    make_sketch(args.outdir)
 
     #checks the output of the mash sketch
     reruns = 0
@@ -1081,7 +1079,7 @@ def main():
         logfile_name = os.path.join(args.outdir, 'log.file')
         with open (logfile_name, "r") as log_file:
             if "ERROR" in log_file.read():
-                make_sketch(args.outdir + os.sep, args.threads)
+                make_sketch(args.outdir + os.sep)
                 reruns += 1
                 print("Encountered error in making sketch file. Retry attempt:", reruns)
                 if reruns == total_reruns:
@@ -1139,14 +1137,14 @@ def main():
     # housekeeping genes: Redundancy filtering
     ################################
 
-    make_sketch(args.outdir + os.sep, args.threads, "HG")
+    make_sketch(args.outdir + os.sep, "HG")
     reruns = 0
     total_reruns = 25
     for i in range(total_reruns):
         inp_file = os.path.join(args.outdir, 'log.file')
         with open (inp_file, "r") as log_file:
             if "ERROR" in log_file.read():
-                make_sketch(args.outdir + os.sep, args.threads, "HG")
+                make_sketch(args.outdir + os.sep, "HG")
                 reruns += 1
                 print("Encountered error in making sketch file. Retry attempt:", reruns)
                 if reruns == total_reruns:
