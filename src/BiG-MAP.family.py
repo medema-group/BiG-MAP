@@ -84,6 +84,8 @@ Options:
     -b   Name of the path to bigscape.py. Default = False
     -p   Number of used parallel threads in the MASH and BiG-SCAPE
          filtering step. Default = 6
+    --metratranscriptomics If the reads to analyze are from metatranscriptomes,
+        include this flag to start hourse-keeping genes analysis      
 ______________________________________________________________________
 ''')
 
@@ -103,6 +105,8 @@ ______________________________________________________________________
                        type=float, default= 0.2)
     parser.add_argument("-p", "--threads", help=argparse.SUPPRESS,
                        type=int, required=False, default=6)
+    parser.add_argument("--metatranscriptomes", "--metatranscriptomes", action='store_true', help=argparse.SUPPRESS, 
+                        required=False)
     return (parser.parse_args())
 
 
@@ -1037,8 +1041,7 @@ def main():
     except:
         pass
 
-    print("___________Extracting fasta files___________________")
-
+    print("___________Extracting fasta files__________")
     ################################
     # parsing data to fasta files
     ################################
@@ -1089,120 +1092,170 @@ def main():
 
     calculate_distance(args.outdir + os.sep)
 
-
-    ###############################
-    # LSH buckets clustering
-    ###############################
     GCFs, distance_matrix = calculate_medoid(args.outdir + os.sep, args.treshold_GC)
 
-    print("___________Adding housekeeping genes________________")
+    if not args.metatranscriptomes:
+        fastadict = makefastaheadersim(GCFs)
 
-    ################################
-    # housekeeping genes: Obtainging
-    ################################
-    hmmfile = Path(f"{sys.path[0]}") / "pfamdomains/combined.hmm"
-    processed = []
-    HG_prot_files = []
-    HG_DNA_files = []
-    absolute_locs["hgenes"] = []  # VALIDATION
-    for fname in GCFs.keys():
-        orgID = fname.split("/")[-1].split(".")[0][8:]  # was [5:] <-- the last one
-        organism = ".".join(fname.split("/")[-1].split(".region")[0].split(".")[1:])
+        ###############################
+        # LSH buckets clustering
+        ###############################
+        
+        # Writing results to outdir
+        #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
+        writejson(fastadict, args.outdir, "BiG-MAP.GCF")
+        writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
+        fasta_file = writeGCFfasta(GCFs, args.outdir, "BiG-MAP.GCF.fna")
 
-        # find housekeeping genes for org using HMMer
-        if organism not in processed:
-            seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
-            hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
-            genelocs = parsehmmoutput(hmmresult)
-            for gene, loc in genelocs.items():
-                prot_seq = getprotseqfromdb(seqdb, loc)
-                DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
-                f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", gene, organism, fname,
-                                                                 args.outdir + os.sep)
-                f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", gene, organism, fname, args.outdir + os.sep)
-                HG_prot_files.append(f_prot)
-                HG_DNA_files.append(f_DNA)
+        # Remembering the enzymatic gene locations
+        GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict)
+        bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF.bed"))
+        writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
 
-                # Remembering the locations
-                GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
-                absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
-            print(f"__________DONE: {organism}")
+        ###################################
+        # Run second redundancy filtering
+        ###################################
+        if args.bigscape_path:
+            list_gbkfiles = list_representatives(fastadict)
+            print("________Preparing BiG-SCAPE input__________")
+            for files in args.indir:
+                for gbk_file in retrieveclusterfiles(files):
+                    movegbk(args.outdir, gbk_file, list_gbkfiles)
+                
+                print("__________Running BiG-SCAPE________________")
+                run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
 
-            # Convert genome.gbk --> genome.fasta and store in outdir
-            if args.genomefiles:
-                gbktofasta(genomedict[orgID], os.path.join(args.outdir, organism +".fasta"), args.outdir + os.sep)
-        processed.append(organism)
+                for tsv_file in retrieve_bigscapefiles(args.outdir):
+                    parsed = parse_bigscape_result(tsv_file)
 
-    ################################
-    # housekeeping genes: Redundancy filtering
-    ################################
+                dict_json = make_jsondict(parsed, fastadict)
+                writejson(dict_json, args.outdir, "BiG-MAP.GCF")
 
-    make_sketch(args.outdir + os.sep, "HG")
-    reruns = 0
-    total_reruns = 25
-    for i in range(total_reruns):
-        inp_file = os.path.join(args.outdir, 'log.file')
-        with open (inp_file, "r") as log_file:
-            if "ERROR" in log_file.read():
-                make_sketch(args.outdir + os.sep, "HG")
-                reruns += 1
-                print("Encountered error in making sketch file. Retry attempt:", reruns)
-                if reruns == total_reruns:
-                    sys.exit("Maximum number of reruns is reached. Try decreasing the number of cores (-p flag)")
-            else:
-                break
-    calculate_distance(args.outdir, "mash_output_HG.tab")
+        #############################
+        # Pickling
+        #############################
+        if args.bigscape_path:
+            pickle_files(fastadict, fasta_file, bed_file, args.outdir, dict_json)
+        else:
+            pickle_files(fastadict, fasta_file, bed_file, args.outdir)
 
-    GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
+        #############################
+        # Cleaning output dir
+        #############################
+        purge(args.outdir, ".fasta")
+        purge(args.outdir, ".txt")
+        purge(args.outdir, ".faa")
+        purge(args.outdir, "log.file")
 
-    fastadict_ALL = makefastaheadersim(GCFs_ALL)
-
-    # Writing results to outdir
-    #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
-    writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
-    writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
-    writejson(distance_matrix_ALL, args.outdir, "BiG-MAP.dist_HG")
-    fasta_file = writeGCFfasta(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF.fna")
-
-    # Remembering the enzymatic gene locations
-    GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
-    bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF_HGF.bed"))
-    writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
-
-    ###################################
-    # Run second redundancy filtering
-    ###################################
-    if args.bigscape_path:
-        list_gbkfiles = list_representatives(fastadict_ALL)
-        print("________Preparing BiG-SCAPE input__________")
-        for files in args.indir:
-            for gbk_file in retrieveclusterfiles(files):
-                movegbk(args.outdir, gbk_file, list_gbkfiles)
-        print("__________Running BiG-SCAPE________________")
-        run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
-
-        for tsv_file in retrieve_bigscapefiles(args.outdir):
-            parsed = parse_bigscape_result(tsv_file)
-
-        dict_json = make_jsondict(parsed, fastadict_ALL)
-        writejson(dict_json, args.outdir, "BiG-MAP.GCF")
-
-    #############################
-    # Pickling
-    #############################
-    if args.bigscape_path:
-        pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir, dict_json)
     else:
-        pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir)
+            
+        print("___________Adding housekeeping genes________________")
 
-    #############################
-    # Cleaning output dir
-    #############################
-    purge(args.outdir, ".fasta")
-    purge(args.outdir, ".txt")
-    purge(args.outdir, ".faa")
-    purge(args.outdir, "log.file")
+        ################################
+        # housekeeping genes: Obtainging
+        ################################
+        hmmfile = Path(f"{sys.path[0]}") / "pfamdomains/combined.hmm"
+        processed = []
+        HG_prot_files = []
+        HG_DNA_files = []
+        absolute_locs["hgenes"] = []  # VALIDATION
+        for fname in GCFs.keys():
+            orgID = fname.split("/")[-1].split(".")[0][8:]  # was [5:] <-- the last one
+            organism = ".".join(fname.split("/")[-1].split(".region")[0].split(".")[1:])
 
+            # find housekeeping genes for org using HMMer
+            if organism not in processed:
+                seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
+                hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
+                genelocs = parsehmmoutput(hmmresult)
+                for gene, loc in genelocs.items():
+                    prot_seq = getprotseqfromdb(seqdb, loc)
+                    DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
+                    f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", gene, organism, fname,
+                                                                                                                     args.outdir + os.sep)
+                    f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", gene, organism, fname, args.outdir + os.sep)
+                    HG_prot_files.append(f_prot)
+                    HG_DNA_files.append(f_DNA)
+
+                    # Remembering the locations
+                    GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
+                    absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
+                print(f"__________DONE: {organism}")
+
+                # Convert genome.gbk --> genome.fasta and store in outdir
+                if args.genomefiles:
+                    gbktofasta(genomedict[orgID], os.path.join(args.outdir, organism +".fasta"), args.outdir + os.sep)
+            processed.append(organism)
+
+        ################################
+        # housekeeping genes: Redundancy filtering
+        ################################
+
+        make_sketch(args.outdir + os.sep, "HG")
+        reruns = 0
+        total_reruns = 25
+        for i in range(total_reruns):
+            inp_file = os.path.join(args.outdir, 'log.file')
+            with open (inp_file, "r") as log_file:
+                if "ERROR" in log_file.read():
+                    make_sketch(args.outdir + os.sep, "HG")
+                    reruns += 1
+                    print("Encountered error in making sketch file. Retry attempt:", reruns)
+                    if reruns == total_reruns:
+                        sys.exit("Maximum number of reruns is reached. Try decreasing the number of cores (-p flag)")
+                    else:
+                        break
+        calculate_distance(args.outdir, "mash_output_HG.tab")
+
+        GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
+
+        fastadict_ALL = makefastaheadersim(GCFs_ALL)
+
+        # Writing results to outdir
+        #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
+        writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
+        writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
+        writejson(distance_matrix_ALL, args.outdir, "BiG-MAP.dist_HG")
+        fasta_file = writeGCFfasta(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF.fna")
+
+        # Remembering the enzymatic gene locations
+        GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
+        bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF_HGF.bed"))
+        writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
+
+        ###################################
+        # Run second redundancy filtering
+        ###################################
+        if args.bigscape_path:
+            list_gbkfiles = list_representatives(fastadict_ALL)
+            print("________Preparing BiG-SCAPE input__________")
+            for files in args.indir:
+                for gbk_file in retrieveclusterfiles(files):
+                    movegbk(args.outdir, gbk_file, list_gbkfiles)
+            print("__________Running BiG-SCAPE________________")
+            run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
+
+            for tsv_file in retrieve_bigscapefiles(args.outdir):
+                parsed = parse_bigscape_result(tsv_file)
+
+            dict_json = make_jsondict(parsed, fastadict_ALL)
+            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+
+        #############################
+        # Pickling
+        #############################
+        if args.bigscape_path:
+            pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir, dict_json)
+        else:
+            pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir)
+
+        #############################
+        # Cleaning output dir
+        #############################
+        purge(args.outdir, ".fasta")
+        purge(args.outdir, ".txt")
+        purge(args.outdir, ".faa")
+        purge(args.outdir, "log.file")
 
 if __name__ == "__main__":
     main()

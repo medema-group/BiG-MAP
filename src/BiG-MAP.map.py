@@ -882,15 +882,19 @@ def main():
     parser, args = get_arguments()
     
     #get the output results from the family module
-    family_results = os.listdir(args.family)
-    bf = [file for file in family_results if 'BiG-MAP.GCF_HGF.bed' in file][0]
-    bed_file = os.path.join(args.family, bf)
-    ref = [file for file in family_results if 'BiG-MAP.GCF_HGF.fna' in file][0]
-    reference = os.path.join(args.family, ref)
-    js = [file for file in family_results if 'BiG-MAP.GCF_HGF.json' in file][0]
-    json_file = os.path.join(args.family, js)
-    bjs = [file for file in family_results if 'BiG-MAP.GCF.json' in file][0]
-    bjson_file = os.path.join(args.family, bjs)
+    bed_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.bed')
+    if not os.path.exists(bed_file):
+        bed_file = os.path.join(args.family, 'BiG-MAP.GCF.bed')
+
+    reference = os.path.join(args.family, 'BiG-MAP.GCF_HGF.fna')
+    if not os.path.exists(reference):
+        reference = os.path.join(args.family, 'BiG-MAP.GCF.fna')
+
+    json_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.json')
+    if not os.path.exists(json_file):
+        json_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
+
+    bjson_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
 
 
     if args.fastq1 and args.fastq2 and not args.U_fastq:
