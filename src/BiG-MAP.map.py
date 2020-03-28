@@ -790,28 +790,15 @@ def decoratebiom(biom_file, outdir, metadata, core=""):
     """inserts rows and column data
     """
     out_biom = '.'.join(biom_file.split('.')[0:-1]) + '.meta.biom'
-    cmd_sample = f"biom add-metadata -i {biom_file} -o {out_biom} -m {metadata}"
+    cmd_sample = f"biom add-metadata -i {biom_file} -o {out_biom} -m {metadata} --output-as-json"
     res_add = subprocess.check_output(cmd_sample, shell=True)
     if core == "core":
+        in_biom = '.'.join(biom_file.split('.')[0:-1]) + '.meta.biom'
+        out_biom = '.'.join(biom_file.split('.')[0:-1]) + '.metacore.biom'
         metadata_f = os.path.join(outdir, 'BiG-MAP.map.core.coverage.txt')
-        cmd_feature = f"biom add-metadata --observation-metadata-fp {metadata_f} -i {biom_file} -o {out_biom}"
+        cmd_feature = f"biom add-metadata --observation-metadata-fp {metadata_f} -i {in_biom} -o {out_biom} --output-as-json"
         res_feature = subprocess.check_output(cmd_feature, shell=True)
     return (out_biom)
-
-def convert2json(out_biom):
-    """writes the results to biom format for easy loading into metagenomeSeq
-    parameters
-    ----------
-    outdir
-        string, the path to output directory
-    returns
-    ----------
-    biom_file = the created biom-format file (without metadata)
-    """
-    json_file = '.'.join(out_biom.split('.')[0:-1]) + 'json.biom'
-    cmd_convert2json = f"biom convert -i {out_biom} -o {json_file} --to-json"
-    res_export = subprocess.check_output(cmd_convert2json, shell=True)
-    return (json_file)
 
 
 def decode_biom(json_file):
@@ -1052,23 +1039,18 @@ def main():
     # writing the results to biom format:
     print('Adding metadeta to biom and converting files into json format')
     if args.biom_output:
-        try:
-            if bed_file:
-                biomfile = export2biom(args.outdir)
-                biom_out1 = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
-                json_out1 = convert2json(biom_out1)
-                decode_biom(json_out1)
-                biomfile2 = export2biom(args.outdir, "core")
-                biom_out2 = decoratebiom(biomfile2, args.outdir, args.biom_output, "core")
-                json_out2 = convert2json(biom_out2)
-                decode_biom(json_out2)
-            else:
-                biomfile = export2biom(args.outdir)
-                biom_out = decoratebiom(biomfile, args.outdir, args.biom_output)
-                json_out = convert2json(biom_out)
-                decode_biom(json_out)
-        except(EOFError):
+        if bed_file:
             biomfile = export2biom(args.outdir)
+            biom_out1 = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
+            decode_biom(biom_out1)
+                
+            biomfile2 = export2biom(args.outdir, "core")
+            biom_out2 = decoratebiom(biomfile2, args.outdir, args.biom_output, "core")
+            decode_biom(biom_out2)
+        else:
+            biomfile = export2biom(args.outdir)
+            biom_out = decoratebiom(biomfile, args.outdir, args.biom_output)
+            decode_biom(biom_out)
 
     # writing mapping percentages for each sample to csv
     mapping_percentages = parse_perc(args.outdir)
