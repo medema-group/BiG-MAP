@@ -42,8 +42,8 @@ def get_arguments():
 ______________________________________________________________________
 BiG-MAP analyse: analyse the biom-outputs (ZIG/Kruskal-Wallis)
 ______________________________________________________________________
-Generic command: python3 BiG-MAP.analyse.py test -B [biom_file]
--T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
+Generic command: python3 BiG-MAP.analyse.py --explore --compare
+-B [biom_file] -T [SampleType] -M [meta_group] -O [outdir] [options*]
 Tests the present biom file using either a fitZIG model or a
 Kruskal-Wallis model. 
 Obligatory arguments:

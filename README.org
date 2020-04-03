@@ -148,51 +148,31 @@ note the '#' to denote the header row!!!
 #+END_EXAMPLE
 
 ** 4) BiG-MAP.analyse.py
-This module is a wrapper script for BiG-MAP.norm.R. This R script can
-also be used locally in R-studio, which is recommended for creating
-nice visualizations. Although the main set-back is that it requires
-local installation of all the dependencies, which is taken care of by
-BiG-MAP_analyse for the command line but not for local R-studio
-analyses. The comments in the script mention how that works. For
-example:
-#+BEGIN_EXAMPLE
-Scroll down to the main in BiG-MAP.norm.R
-Edit and uncomment:
-biom_file <- path/to/biom-file
-MT <- condition
-sampletype <- "METATRANSCRIPTOMIC" | "METAGENOMIC"
-group_1 <- condition_1
-group_2 <- condition_2
-explore <- TRUE/FALSE
+This module performs a statistical analysis on the
+metagenomic/metatranscriptomic samples. First, the script
+normalizes and filters the data. Whereafter, the best covered gene
+clusters can be obseverd using the /--explore/ flag. Next, the 
+Kruskal Wallis and fitZIG model will be used to compute differentially
+abundant/expressed gene clusters and Benjamini-Hochberg FDR compensates 
+for multiple hypothesis testing. The output of the script are heatmaps 
+in pdf format.
 
-Run all the functions and analyse locally
-#+END_EXAMPLE
-
-If you want to do it from the command line (eg in automated analysis),
-first install all dependencies using the BiG-MAP_process.yml file, if
-not done already. Then, it works as follows:
+To run the script, the BiG-MAP_analyse conda environment should be activated.
+The general usage is:
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.analyse.py inspect -h
-python3 BiG-MAP.analyse.py inspect -B [biom_file] [options*]
+conda activate BiG-MAP_analyse
+python3 BiG-MAP.analyse.py -h
+python3 BiG-MAP.analyse.py --explore --compare inspect -B [biom_file] -T [metagenomic/metatranscriptomic] -M [metagroup] -O [outdir] [Options*]
 
 Example:
-python3 BiG-MAP.analyse.py inspect -B /mnt/scratch/usr001/BiG-MAP.map.biom -e /mnt/scratch/usr001/ -s metagenomic -m DiseaseStatus
+python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/
 
 Output: 
-which conditions can be analysed
-heatmap
+explore_heatmap.pdf -> contains the top 20 best covered gene clusters
+UCvsControl_fitzig.pdf -> comparison between UC and non-IBD using the fitZIG model
+UCvsControl_kw.pdf -> comparison between UC and non-IBD using the Kruskal Wallis model
 #+END_EXAMPLE
 
-To perform statistical testing on the biom file, use:
-
-#+BEGIN_EXAMPLE
-python3 BiG-MAP.analyse.py test -h
-python3 BiG-MAP.analyse.py test -B [biom_file] -T [SampleType] -M [meta_group] -G [[groups]] -O [outdir]
-
-Example:
-python3 BiG-MAP.analyse.py test -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -G UC non-IBD -O /mnt/scratch/usr001/
-
-#+END_EXAMPLE
 
 * Requirements
 ** Input data:
