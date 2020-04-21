@@ -1,23 +1,33 @@
 name: BiG-MAP_analyse
 channels:
-  - https://repo.anaconda.com/pkgs/free
-  - conda-forge
-  - anaconda
-  - bioconda
   - r
+  - https://repo.anaconda.com/pkgs/free
+  - anaconda
+  - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
   - _r-mutex=1.0.0=anacondar_1
   - binutils_impl_linux-64=2.28.1=had2808c_3
   - binutils_linux-64=7.2.0=had2808c_27
+  - bioconductor-biobase=2.46.0=r36h516909a_0
+  - bioconductor-biocgenerics=0.32.0=r36_0
+  - bioconductor-biomformat=1.14.0=r36_0
+  - bioconductor-ihw=1.14.0=r36_0
+  - bioconductor-limma=3.42.0=r36h516909a_0
+  - bioconductor-lpsymphony=1.14.0=r36he1b5a44_0
+  - bioconductor-metagenomeseq=1.28.0=r36_0
+  - bioconductor-rhdf5=2.30.0=r36he1b5a44_0
+  - bioconductor-rhdf5lib=1.8.0=r36h516909a_0
+  - bioconductor-wrench=1.4.0=r36_0
   - biom-format=2.1.6=py36_1
   - blas=1.0=mkl
   - bwidget=1.9.11=1
   - bzip2=1.0.8=h7b6447c_0
   - ca-certificates=2020.1.1=0
   - cairo=1.14.12=h8948797_3
-  - certifi=2019.11.28=py36_1
+  - certifi=2020.4.5.1=py36_0
   - click=7.1.1=py_0
   - curl=7.65.3=hbc83047_0
   - cycler=0.10.0=py36_0
@@ -56,6 +66,7 @@ dependencies:
   - libgcc-ng=9.1.0=hdf63c60_0
   - libgfortran-ng=7.3.0=hdf63c60_0
   - libiconv=1.14=0
+  - libopenblas=0.3.6=h5a2b251_2
   - libpng=1.6.37=hbc83047_0
   - libssh2=1.8.2=h1ba5d50_0
   - libstdcxx-ng=9.1.0=hdf63c60_0
@@ -69,7 +80,7 @@ dependencies:
   - mkl=2019.5=281
   - ncurses=6.1=he6710b0_1
   - numpy=1.14.2=py36hdbf6ddf_0
-  - openssl=1.1.1e=h7b6447c_0
+  - openssl=1.1.1=h7b6447c_0
   - pandas=0.25.3=py36he6710b0_0
   - pango=1.42.4=h049681c_0
   - patsy=0.5.1=py36_0
@@ -80,6 +91,7 @@ dependencies:
   - pyqt=5.9.2=py36h05f1152_2
   - python=3.6.7=h0371630_0
   - python-dateutil=2.8.1=py_0
+  - python_abi=3.6=1_cp36m
   - pytz=2019.3=py_0
   - qt=5.9.7=h5867ecd_1
   - r=3.6.0=r36_0
@@ -114,6 +126,7 @@ dependencies:
   - r-ellipsis=0.1.0=r36h96ca727_0
   - r-evaluate=0.13=r36h6115d3f_0
   - r-fansi=0.4.0=r36h96ca727_0
+  - r-fdrtool=1.2.15=r36hcdcec82_1002
   - r-forcats=0.4.0=r36h6115d3f_0
   - r-foreach=1.4.4=r36h6115d3f_0
   - r-foreign=0.8_71=r36h96ca727_0
@@ -138,6 +151,7 @@ dependencies:
   - r-labeling=0.3=r36h6115d3f_4
   - r-lattice=0.20_38=r36h96ca727_0
   - r-lazyeval=0.2.2=r36h96ca727_0
+  - r-locfit=1.5_9.4=r36hcdcec82_0
   - r-lubridate=1.7.4=r36h29659fb_0
   - r-magrittr=1.5=r36h6115d3f_4
   - r-markdown=0.9=r36h96ca727_0
@@ -181,6 +195,7 @@ dependencies:
   - r-rvest=0.3.3=r36h6115d3f_0
   - r-scales=1.0.0=r36h29659fb_0
   - r-selectr=0.4_1=r36h6115d3f_0
+  - r-slam=0.1_47=r36hcdcec82_0
   - r-spatial=7.3_11=r36h96ca727_4
   - r-stringi=1.4.3=r36h29659fb_0
   - r-stringr=1.4.0=r36h6115d3f_0
