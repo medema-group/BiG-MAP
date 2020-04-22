@@ -155,7 +155,6 @@ def filter_rows(json_file, sample_index):
     dict_counts = {}
     tot_hits = []
     out_list = []
-
     # Cut-off such that 25% of the samples have a hit
     cutoff = int((len(sample_index.keys()))*0.25)
     # Determines the amount of hits for a GC
@@ -169,6 +168,7 @@ def filter_rows(json_file, sample_index):
                 if data_index[0] in com:
                     counts += 1
                     dict_counts[data_index[0]] = counts
+
     # Compares the total amount of hits for a GC with the cut-off
     for key in dict_counts.keys():
         if dict_counts[key] >= cutoff:

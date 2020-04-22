@@ -890,8 +890,9 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     """
     output_dir = os.path.join(outdir, "bigscape_output")
     gbk_files = os.path.join(outdir, "gbk_files")
+    bigscape_exec = os.path.join(path_to_bigscape, 'bigscape.py')
     try:
-        cmd_bigscape = f"python3 {path_to_bigscape}bigscape.py -i {gbk_files} -o {output_dir} -c {cores} \
+        cmd_bigscape = f"python3 {bigscape_exec} -i {gbk_files} -o {output_dir} -c {cores} \
         --pfam_dir {pfamfiles} --cutoffs {cut_off} --clans-off --hybrids-off --mibig"
         subprocess.check_output(cmd_bigscape, shell=True)
     except(subprocess.CalledProcessError):
