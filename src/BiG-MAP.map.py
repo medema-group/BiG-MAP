@@ -399,16 +399,13 @@ def extractcorefrombam(bam, outdir, bedfile):
     ----------
     bamfile = the name of the .bam file
     """
-    #  samtools view -b -L BiG-MAP.enzymes.bedfile SRR5947807.bam > bedfile.bam
     bamstem = Path(bam).stem
     bamfile = os.path.join(outdir, "core_" + bamstem + ".bam")
     if os.path.exists(bedfile):
         try:
-            cmd_extractcore = f"samtools view\
-            -b {bam}\
-            -L {bedfile}\
-            > {bamfile}"
-            res_extractcore = subprocess.check_output(cmd_extractcore, shell=True)
+            cmd_extractcore = f"samtools view -b {bam} -L {bedfile} > {bamfile}"
+            res_extractcore = subprocess.check_output(cmd_extractcore, shell=True, \
+            stderr=subprocess.DEVNULL)
         except(subprocess.CalledProcessError):
             print('Unable to extract core locations frmom bedfile')
     else:
@@ -573,9 +570,10 @@ def bedtoolscoverage(gfile, outdir, sortedbam):
 
     try:
         cmd_bedtools = f"bedtools genomecov -bga -ibam {sortedbam} > {bg_file}"
-        res_bedtools = subprocess.check_output(cmd_bedtools, shell=True)
+        res_bedtools = subprocess.check_output(cmd_bedtools, shell=True,\
+        stderr=subprocess.DEVNULL)
     except(subprocess.CalledProcessError):
-        print('Unable to compute the coverage')
+        pass
     return (bg_file)
 
 
@@ -687,6 +685,7 @@ def computecorecoverage(bedgraph, bedfile):
     core_starts = {}
     core_ends = {}
     core_lengths = {}
+    total_coverage = {}
     with open(bedfile, "r") as bf:
         for line in bf:
             line = line.strip()
@@ -700,27 +699,27 @@ def computecorecoverage(bedgraph, bedfile):
                 core_ends[clust] = []
             core_starts[clust].append(int(start))
             core_ends[clust].append(int(end))
-    # Parsing bedgraph for entries
-    nocov = {}
-    with open(bedgraph, "r") as f:
-        for line in f:
-            line = line.strip()
-            cluster, start, end, cov = line.split("\t")
-            # if "--NR" in cluster_NR:
-            #    NR_index = cluster_NR.find("--NR")
-            #    cluster = cluster_NR[:NR_index]
-            # else:
-            #    cluster = cluster_NR
-            if not cluster in nocov:  # make entry
-                nocov[cluster] = 0
-            if float(cov) == 0:  # enter no coverage values
-                not_covered = local_computecov(core_starts[cluster], core_ends[cluster], [int(start), int(end)])
-                nocov[cluster] += not_covered
-    # Final coverage calculation:
-    total_coverage = {}
-    for key in nocov.keys():
-        perc = (core_lengths[key] - nocov[key]) / core_lengths[key]
-        total_coverage[key] = perc
+    # Check if the core BAM file is empty
+    if os.stat(bedgraph).st_size == 0:
+        for key_values in core_ends.keys():
+            total_coverage[key_values] = 0.0
+
+    else:
+        # Parsing bedgraph for entries
+        nocov = {}
+        with open(bedgraph, "r") as f:
+            for line in f:
+                line = line.strip()
+                cluster, start, end, cov = line.split("\t")
+                if not cluster in nocov:  # make entry
+                    nocov[cluster] = 0
+                if float(cov) == 0:  # enter no coverage values
+                    not_covered = local_computecov(core_starts[cluster], core_ends[cluster], [int(start), int(end)])
+                    nocov[cluster] += not_covered
+        # Final coverage calculation:
+        for key in nocov.keys():
+            perc = (core_lengths[key] - nocov[key]) / core_lengths[key]
+            total_coverage[key] = perc
     return (total_coverage)
 
 
@@ -987,6 +986,7 @@ def main():
             core_raw = parserawcounts(countsfile)
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
+
             core_coverage = computecorecoverage(core_bedgraph, bed_file)
             if BGCF:
                 core_coverage = correct_coverage(core_coverage, countsfile)

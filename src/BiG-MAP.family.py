@@ -1104,7 +1104,7 @@ def main():
         
         # Writing results to outdir
         #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
-        writejson(fastadict, args.outdir, "BiG-MAP.GCF")
+        writejson(fastadict, args.outdir, "BiG-MAP.GCs")
         writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
         fasta_file = writeGCFfasta(GCFs, args.outdir, "BiG-MAP.GCF.fna")
 
