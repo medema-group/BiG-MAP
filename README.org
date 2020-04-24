@@ -8,7 +8,7 @@ Meta'omics abundance Profiler (BiG-MAP). For the analysis of bacterial
 metagenomic and metatranscriptomic samples more and more tools become
 available, although these tools are not capable of profiling specific
 metabolic gene clusters (MGCs), that have been shown to be major
-phenotype drivers. Therefore, this tool is focussed on finding the
+phenotype drivers. Therefore, this tool is focused on finding the
 representation of MGCs and their related homologs in metagenomic and
 metatranscriptomic samples. These pathways are readily obtained from
 (draft) bacterial genomes using antiSMASH or gutSMASH. To be able to
@@ -55,7 +55,7 @@ A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
    families (HGFs) using BiG-MAP.family.py
 3) Computing abundance and expression profiles of selected
    representatives from each GCF and HGF using BiG-MAP.map.py
-4) Analysing the resulting BIOM file for profiles using
+4) Analyzing the resulting BIOM file for profiles using
    BiG-MAP.analyse.py
 The four steps are described below, and for each an example is
 provided. 
@@ -71,7 +71,7 @@ python3 BiG-MAP.download.py -h
 python3 BiG-MAP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
 #+END_EXAMPLE
 To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and fill in the
-study code. For the IBD-cohort of schirmer et al. (2018) that is
+study code. For the IBD-cohort of Schirmer et al. (2018) that is
 PRJNA389280. Next, select the accessions and click *Accession List* to
 download the accessions. Use this accession file in the following
 command:
@@ -102,7 +102,7 @@ python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
 In the example of a gutSMASH run on 1520 (draft) reference genomes
-that are present in the gut, with a Mash treshold of 0.1 for GFCs
+that are present in the gut, with a Mash threshold of 0.1 for GFCs
 and 0.1 for HGFs, no flanking genes of the core, no genome fasta file
 outputs, 6 process cores and making use of the additional BiG-SCAPE redundancy filtering step:
 #+BEGIN_EXAMPLE
@@ -128,7 +128,7 @@ python3 BiG-MAP.map.py -h
 python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-R [reference] -F [family] | -P [pickled file]} -O [outdir]  [Options*]
 #+END_EXAMPLE
 
-To map 10 reads from schirmer et al to the reference representatives
+To map 10 reads from Schirmer et al to the reference representatives
 from the GCFs and HGFs, and correct for the BiG-SCAPE GCFs, run:
 
 *NOTE*: It is important for downstream analysis to also use the /-b/ flag. 
@@ -151,7 +151,7 @@ note the '#' to denote the header row!!!
 This module performs a statistical analysis on the
 metagenomic/metatranscriptomic samples. First, the script
 normalizes and filters the data. Whereafter, the best covered gene
-clusters can be obseverd using the /--explore/ flag. Next, the 
+clusters can be observed using the /--explore/ flag. Next, the 
 Kruskal Wallis and fitZIG model will be used to compute differentially
 abundant/expressed gene clusters and Benjamini-Hochberg FDR compensates 
 for multiple hypothesis testing. The output of the script are heatmaps 
@@ -162,15 +162,23 @@ The general usage is:
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_analyse
 python3 BiG-MAP.analyse.py -h
-python3 BiG-MAP.analyse.py --explore --compare inspect -B [biom_file] -T [metagenomic/metatranscriptomic] -M [metagroup] -O [outdir] [Options*]
+python3 BiG-MAP.analyse.py --explore --compare -B [biom_file] -T [metagenomic/metatranscriptomic] -M [metagroup] -O [outdir] [Options*]
 
-Example:
+Example command for the explore heatmap:
+python3 BiG-MAP.analyse.py --explore -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -O /mnt/scratch/usr001/
+
+Example command for the compare heatmap:
+python3 BiG-MAP.analyse.py --compare -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/
+
+Example command including both the explore and the compare heatmap:
 python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/
 
+
 Output: 
-explore_heatmap.pdf -> contains the top 20 best covered gene clusters
-UCvsControl_fitzig.pdf -> comparison between UC and non-IBD using the fitZIG model
-UCvsControl_kw.pdf -> comparison between UC and non-IBD using the Kruskal Wallis model
+explore_heatmap.pdf & explore_heatmap.eps -> contains the top 20 best covered gene clusters
+UCvsControl_fz.pdf & UCvsControl_fz.eps -> comparison between UC and non-IBD using the fitZIG model
+UCvsControl_kw.pdf & UCvsControl_kw.eps -> comparison between UC and non-IBD using the Kruskal Wallis model
+tsv-results -> directory containing tsv files with the numeric results
 #+END_EXAMPLE
 
 

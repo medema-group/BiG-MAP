@@ -7,13 +7,12 @@ University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 09/03/2020
 ----------------------------------------------
-
 This script performs a statistical analysis of the
 metagenomic/metatranscriptomic samples. First, the script
 normalizes and filters the data. Next, the best covered gene
 clusters can be obseverd and the Kruskal Wallis and fitZIG model
 will be used to compute differentially abundant/expressed gene clusters.
-Benjamini-Hochberg FDR compensates for multiple hypothesis testing. 
+Benjamini-Hochberg FDR compensates for multiple hypothesis testing.
 The output of the script are heatmaps in pdf format.
 """
 # Import statements:
@@ -21,6 +20,8 @@ import os.path
 import subprocess
 import sys
 import argparse
+import re
+import shutil
 import json
 import pandas as pd
 import numpy as np
@@ -53,15 +54,19 @@ Obligatory arguments:
                 options output. Examples: DiseaseStatus, Longitude, etc...
     -O          Put path to the output folder where the results should be
                 deposited. Default = current folder (.)
-    --explore    Explore the best covered gene clusters
+    --explore   Explore the best covered gene clusters.
     -t          Optional argument for -explore: adjust the
                 amount of displayed gene clusters. Default = 20.
-    --compare    Make a comperison between two groups using FitZIG and Kruskal-Wallis
+    -fe         File name for explore heatmap. Default = explore_heatmap.
+    --compare   Make a comparison between two groups using fitZIG and Kruskal-Wallis.
     -g          Space separated list of 2 groups that are to be compared.
-                Example: UC and non-IBD --> UC non-IBD
+                Example: UC and Control --> UC Control.
     -af         Alpha value to determine significance of the fitZIG model. Default=0.05.
     -ak         Alpha value to determine significance of the Kruskal Wallis model. Default=0.05.
-______________________________________________________________________
+    -fc         Output file names for Kruskal Wallis and fitZIG heatmaps. Input first the 
+                name for Kruskal Wallis, then for fitZIG. Example: map1_kruskall map2_fitZIG.
+                Default = [group1]vs[group2]_[kw/fz].
+_____________________________________________________________
 ''')
 
     parser.add_argument("-B", "--biom_file",
@@ -85,6 +90,10 @@ ______________________________________________________________________
                         type=float, default=0.05, required=False)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS,
                         required=True)
+    parser.add_argument("-fe", "--file_name_explore", help=argparse.SUPPRESS,
+                        required=False)
+    parser.add_argument("-fc", "--file_names_compare", help=argparse.SUPPRESS,
+                        type=str, nargs='+', required=False)
     return parser.parse_args()
 
 ######################################################################
@@ -151,10 +160,13 @@ def filter_rows(json_file, sample_index):
     out_list = list, indexes which are above the cut-off
     """
     counts = 0
+    index_number = 0
     com = []
     dict_counts = {}
     tot_hits = []
     out_list = []
+    gc_ids = []
+
     # Cut-off such that 25% of the samples have a hit
     cutoff = int((len(sample_index.keys()))*0.25)
     # Determines the amount of hits for a GC
@@ -168,11 +180,20 @@ def filter_rows(json_file, sample_index):
                 if data_index[0] in com:
                     counts += 1
                     dict_counts[data_index[0]] = counts
-
     # Compares the total amount of hits for a GC with the cut-off
-    for key in dict_counts.keys():
-        if dict_counts[key] >= cutoff:
-            tot_hits.append(key)
+    for ids in json_file["rows"]:
+        if ids["id"] not in gc_ids:
+            gc_ids.append(ids["id"])
+    for ids2 in gc_ids:
+        for key in dict_counts.keys():
+            if "HG_" in ids2 and key not in tot_hits:
+                if key == index_number:
+                    tot_hits.append(key)
+            else:
+                if dict_counts[key] >= cutoff and key not in tot_hits:
+                    tot_hits.append(key)
+        index_number += 1
+
     # Create list containing the data above the cut-off
     for data_index in json_file["data"]:
         for index_no in tot_hits:
@@ -325,24 +346,28 @@ def get_relevant_hg(sign_gc, df):
     id_list = list, GC and HG ids
     """
     id_list = []
+    name_list = []
     sign_hg = []
     function_names = []
 
     index_list = list(sign_gc.index)
     index_full = list(df.index)
     for gc_name in index_list:
+        name_list.append(gc_name.split("--OS=")[1].split("--SMASHregion=")[0])
         id_list.append(gc_name.split("|")[1].split(".")[0])
+
     # make a list of all the relevant HGs
-    for id_name in id_list:
+    for id_name in name_list:
         for full_names in index_full:
             if id_name in full_names and "HG_" in full_names:
                 sign_hg.append(full_names)
+
     # get the function from the HG name
     for hg_name in sign_hg:
         function = hg_name.split("Entryname=")[1].split("--OS=")[0]
         if function not in function_names:
             function_names.append(function)
-    return(function_names, sign_hg, id_list)
+    return(function_names, sign_hg, name_list)
 
 def make_hg_df(function_names, sign_hg, id_list, df, groups="", metadata=""):
     """ create a dataframe of HG as index and functions as colums with values as means
@@ -375,12 +400,14 @@ def make_hg_df(function_names, sign_hg, id_list, df, groups="", metadata=""):
         for function in function_names:
             for ids in id_list:
                 if function in gc_name and ids in gc_name:
-                    means_dict[gc_name] = [means_dict[gc_name]]
-                    means_dict[gc_name].append(function)
-                    means_dict[gc_name].append(ids)
+                    if type(means_dict[gc_name]) == type(id_list):
+                        means_dict[gc_name] = means_dict[gc_name]
+                    else:
+                        means_dict[gc_name] = [means_dict[gc_name]]
+                        means_dict[gc_name].append(function)
+                        means_dict[gc_name].append(ids)
     mean_df = (pd.DataFrame(means_dict, index=["Mean", "Function", "ID"])).T
     mean_df = mean_df.pivot(index='ID', columns='Function', values='Mean')
-    #relevant_hg = df[df.index.isin(sign_hg)]
     return mean_df
 
 def sort_coverage(gc_df, cov, metadata):
@@ -427,7 +454,7 @@ def sort_housekeeping(gc_df, hg_df, cov):
     # add zero's for non existing HG
     index_names = list(gc_df.index)
     for index in index_names:
-        index_list.append(index.split("|")[1].split(".")[0])
+        index_list.append(index.split("--OS=")[1].split("--SMASHregion=")[0])
     hg_df = hg_df.replace(np.nan, 0.0)
     index_hg = list(hg_df.index)
     column_hg = len(list(hg_df.columns))
@@ -435,15 +462,14 @@ def sort_housekeeping(gc_df, hg_df, cov):
     for id_gc in index_list:
         if id_gc not in index_hg:
             hg_df.loc[id_gc] = [0] * column_hg
-
-    # sort the HG on coverage from high to low
+    # sort the HGs on coverage from high to low
     for cov_id in cov_index:
         for id_gc in index_list:
             if id_gc in cov_id:
-                sort_id[cov_id] = id_gc
-    df_new = df.rename(index=sort_id)
-    df_new = df_new.loc[~df_new.index.duplicated(keep='first')]
-    hg_new = pd.concat([hg_df, df_new], axis=1, sort=True)
+                sort_id[id_gc] = cov_id
+    df_new = hg_df.rename(index=sort_id)
+    cov_mean = cov.mean(axis=1)
+    hg_new = pd.concat([df_new, cov_mean], axis=1, sort=True)
     hg_new = (hg_new.sort_values(by=[0], ascending=False)).drop([0], axis=1)
     return hg_new
 
@@ -474,10 +500,10 @@ def run_fit_zig(biomfile, groups, data_group, biom_dict):
     for sample in biom_dict["columns"]:
         data_type = sample["metadata"]["SampleType"]
 
-    #names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
-    #if len(names_to_install) > 0:
-    #    for i in names_to_install:
-    #        utils.install_packages(i, repos="http://cran.rstudio.com/")
+    names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
+    if len(names_to_install) > 0:
+        for i in names_to_install:
+            utils.install_packages(i, repos="http://cran.rstudio.com/")
     metagenomeseq = importr('metagenomeSeq')
     biomformat = importr('biomformat')
 
@@ -639,6 +665,7 @@ def get_log2fold(gc_df, groups, group_meta):
     --------
     log_fold = dataframe, log2 fold change of the relevant GCs
     """
+    groups = sorted(groups)
     group1 = groups[0]
     group2 = groups[1]
     row = pd.Series(group_meta, name="Metadata")
@@ -649,7 +676,7 @@ def get_log2fold(gc_df, groups, group_meta):
     log_fold = sign_fit_adj.drop([group1, group2], axis=1)
     return log_fold
 
-def structure_data(gc_df, cov, log_fold, hg_df=""):
+def structure_data(gc_df, cov, log_fold):
     """ sort the data for the fitzig model
     --------
     hg_df
@@ -671,28 +698,55 @@ def structure_data(gc_df, cov, log_fold, hg_df=""):
     index_names = list(gc_df.index)
     for index in index_names:
         index_list.append(index.split("|")[1].split(".")[0])
-    if type(hg_df) == type(gc_df):
-        index_hg = list(hg_df.index)
-        hg_df = hg_df.replace(np.nan, 0.0)
-        column_hg = len(list(hg_df.columns))
-        for id_gc in index_list:
-            if id_gc not in index_hg:
-                hg_df.loc[id_gc] = [0] * column_hg
-        hg_df = hg_df.sort_index()
-        hg_df = hg_df.apply(pd.to_numeric, errors='coerce')
     gc_df = gc_df.replace(0, float(0.0))
-    sorted_gc = gc_df.sort_index()
-    log_fold = log_fold.sort_index()
-    sorted_cov = cov.sort_index()
+
+    # sort the dataframe on the mean coverage from high to low
+    cov_mean = cov.mean(axis=1)
+    sorted_gc = pd.concat([gc_df, cov_mean], axis=1, sort=True)
+    sorted_gc = (sorted_gc.sort_values(by=[0], ascending=False)).drop([0], axis=1)
+    # sort the coverage on the mean coverage
+    sorted_cov = pd.concat([cov, cov_mean], axis=1, sort=True)
+    sorted_cov = (sorted_cov.sort_values(by=[0], ascending=False)).drop([0], axis=1)
     sorted_cov = pd.melt(sorted_cov.reset_index(), \
     id_vars="index", var_name="group", value_name="cov")
-    return sorted_cov, log_fold, sorted_gc, hg_df
+    # sort the log2 fold change on the mean coverage
+    sorted_log_fold = pd.concat([log_fold, cov_mean], axis=1, sort=True)
+    sorted_log_fold = (sorted_log_fold.sort_values(by=[0], ascending=False)).drop([0], axis=1)
+    return sorted_cov, sorted_log_fold, sorted_gc
+
+def movetodir(outdir, dirname, pattern):
+    """moves files matching a patterd into new directory
+    parameters
+    ----------
+    outdir
+        string, the path to output directory
+    dirname
+        string, name of the new direcory
+    pattern
+        string, regex
+    returns
+    ----------
+    None
+    """
+    # Make directory
+    try:
+        os.mkdir(os.path.join(outdir, dirname))
+    except:
+        pass
+    # Move files into new directory
+    for f in os.listdir(outdir):
+        if re.search(pattern, f):
+            try:
+                shutil.move(os.path.join(outdir, f), os.path.join(outdir, dirname))
+            except:
+                pass
 
 ######################################################################
 # VISUALIZATION
 ######################################################################
 
-def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, sign_hg=""):
+def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, \
+                file_name="explore_heatmap", sign_hg=""):
     """ Creates the explore heatmap in pdf format.
     ----------
     sign_GC
@@ -717,7 +771,8 @@ def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, sign_hg
     y_axis_labels = []
     percentage = []
 
-    pdf_file = os.path.join(outdir, "explore_heatmap.pdf")
+    pdf_file = os.path.join(outdir, f"{file_name}.pdf")
+    eps_file = os.path.join(outdir, f"{file_name}.eps")
     index_names = list(sign_gc.index)
     for name in index_names:
         y_axis_labels.append(name.split("Entryname=")[1].split("--SMASH")[0])
@@ -779,12 +834,13 @@ def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, sign_hg
             cbar_ax=cbar_ax)
             ax3.text(6, 8.4, 'Housekeeping \n genes', fontsize=40)
             ax3.set_xticklabels(sign_hg.columns, rotation=90, fontsize=30)
-            ax3.set_ylabel('').set_xlabel('')
+            ax3.set_ylabel('')
+        plt.savefig(eps_file, format='eps')
         pdf.savefig()
     return
 
 def make_compare(sign_gc, log_fold, cov, metadata, metagroup, sample_type,\
-                outdir, groups, file_name, alpha=0.15, sign_hg=""):
+                outdir, groups, file_name, plot_type, alpha=0.15, sign_hg=""):
     """ Creates the explore heatmap in pdf format
     ----------
     sign_GC
@@ -815,7 +871,8 @@ def make_compare(sign_gc, log_fold, cov, metadata, metagroup, sample_type,\
     group1 = groups[0]
     group2 = groups[1]
 
-    pdf_file = os.path.join(outdir, f"{group1}vs{group2}_{file_name}")
+    eps_file = os.path.join(outdir, f"{file_name}.eps")
+    pdf_file = os.path.join(outdir, f"{file_name}.pdf")
     index_names = list(sign_gc.index)
     for name in index_names:
         y_axis_labels.append(name.split("Entryname=")[1].split("--SMASH")[0])
@@ -833,7 +890,7 @@ def make_compare(sign_gc, log_fold, cov, metadata, metagroup, sample_type,\
         ax=ax0, colormap='summer')
         group_bar.axis('off')
         plt.xlim([0, 100])
-        if "fitzig" in pdf_file:
+        if plot_type == "fitzig":
             plt.title(\
             f"fitZIG model: {sample_type} \n p<{alpha} -- {group1} vs {group2}", fontsize=60)
         else:
@@ -898,7 +955,7 @@ def make_compare(sign_gc, log_fold, cov, metadata, metagroup, sample_type,\
             legend2 = plt.legend(loc='center left', bbox_to_anchor=(1.2, 0.34), frameon=False, \
             prop={'size': 35}, title="Coverage", markerscale=3)
             legend2.get_title().set_fontsize('40')
-        #plt.show()
+        plt.savefig(eps_file, format='eps')
         pdf.savefig()
     return
 
@@ -937,12 +994,14 @@ def main():
     # Making a pandas dataframe and normalize the data
     gc_df = make_dataframe(gc_values, sample_list)
     norm_df = norm_log2_data(gc_df)
+    gc_df.to_csv((os.path.join(args.outdir, 'all_RPKMs.tsv')), sep='\t')
 
     if args.explore:
         print("__________Making explore heatmap__________________")
         # Extract the coverage scores from the BIOM file
         dict_cov = get_coverage(biom_dict, sample_list, list(gc_values.keys()))
         cov = make_dataframe(dict_cov, sample_list)
+        cov.to_csv((os.path.join(args.outdir, 'coverage.tsv')), sep='\t')
         sign_gc, sign_cov = best_cov(cov, norm_df, args.threshold)
         # Make the explore heatmap
         if sample_type == "METATRANSCRIPTOMIC":
@@ -950,20 +1009,45 @@ def main():
             pandas_hg = make_hg_df(gc_names, sign_hg, id_list, norm_df)
             gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
             hg_sorted = sort_housekeeping(sign_gc, pandas_hg, sign_cov)
-            make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
-            sample_type, args.outdir, hg_sorted)
+            hg_sorted.to_csv((os.path.join(args.outdir, 'explore_HGs.tsv')), sep='\t')
+            gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
+            if args.file_name_explore:
+                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                sample_type, args.outdir, args.file_name_explore, hg_sorted)
+            else:
+                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                sample_type, args.outdir, "explore_heatmap", hg_sorted)
         else:
             gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
-            make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
-            sample_type, args.outdir)
+            gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
+            if args.file_name_explore:
+                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                sample_type, args.outdir, args.file_name_explore)
+            else:
+                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                sample_type, args.outdir)
+        if not args.compare:
+            os.remove(os.path.join(args.outdir + "BiG-MAP.table.txt"))
+        movetodir(args.outdir + os.sep, "tsv-results", ".tsv")
 
     if args.compare and args.groups:
+        group1 = args.groups[0]
+        group2 = args.groups[1]
         print("__________Kruskal-wallis model____________________")
         # run the Kruskal Wallis model
         kruskal_results = kruskal_wallis(norm_df, metadata, args.groups)
         # parse the output and get the significant GCs
         sign_kw, meta_types = parse_results(kruskal_results, norm_df, args.groups, \
         metadata, args.alpha_kruskal, "kruskal")
+        if args.file_names_compare and len(args.file_names_compare) == 2:
+            kruskal_file = args.file_names_compare[0]
+            fitzig_file = args.file_names_compare[1]
+        elif args.file_names_compare and len(args.file_names_compare) != 2:
+            print("Please input two output file names for the Kruskal-Wallis \
+            and fitZIG heatmaps. For instance: UCvsCD_kw UCvsCD_fz")
+        else:
+            kruskal_file = f"{group1}vs{group2}_kw"
+            fitzig_file = f"{group1}vs{group2}_fz"
         if meta_types == []:
             pass
         else:
@@ -978,16 +1062,22 @@ def main():
                 gc_names, sign_hg, id_list = get_relevant_hg(sign_kw, norm_df)
                 kw_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, \
                 norm_df, args.groups, metadata)
-                sorted_cov, log_fold, sorted_gc, sorted_hg = \
-                structure_data(sign_kw, cov, log_fold, kw_hg_pandas)
+                sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
+                kw_hg_pandas.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_HG_kw.tsv')), sep='\t')
+                sorted_gc.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_GC_kw.tsv')), sep='\t')
                 # make the kruskal wallis figure
                 make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-                sample_type, args.outdir, args.groups, "kw.pdf", args.alpha_kruskal, sorted_hg)
+                sample_type, args.outdir, args.groups, kruskal_file, "kruskal", \
+                args.alpha_kruskal, kw_hg_pandas)
             else:
-                sorted_cov, log_fold, sorted_gc, hg = structure_data(sign_kw, cov, log_fold)
+                sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
+                sorted_gc.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_GC_kw.tsv')), sep='\t')
                 # make the kruskal wallis figure
                 make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-                sample_type, args.outdir, args.groups, "kw.pdf", args.alpha_kruskal)
+                sample_type, args.outdir, args.groups, kruskal_file, "kruskal", args.alpha_kruskal)
 
         print("__________Fit-ZIG model____________________")
         # run the fitzig model in R
@@ -1006,17 +1096,24 @@ def main():
             # get the relevant housekeeping genes
             gc_names, sign_hg, id_list = get_relevant_hg(sign_fit, norm_df)
             fit_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, norm_df, args.groups, metadata)
-            sorted_cov, log_fold, sorted_gc, sorted_hg = structure_data\
-            (sign_fit, cov, log_fold, fit_hg_pandas)
+            sorted_cov, log_fold, sorted_gc= structure_data(sign_fit, cov, log_fold)
+            fit_hg_pandas = fit_hg_pandas.replace(np.nan, 0.0)
+            fit_hg_pandas.to_csv((os.path.join(args.outdir, \
+            f'{group1}vs{group2}_HG_fz.tsv')), sep='\t')
+            sorted_gc.to_csv((os.path.join(args.outdir, \
+            f'{group1}vs{group2}_GC_fz.tsv')), sep='\t')
             # make the fitzig figure
             make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-            sample_type, args.outdir, args.groups, "fitzig.pdf", args.alpha_fitzig, sorted_hg)
+            sample_type, args.outdir, args.groups, fitzig_file, "fitzig", args.alpha_fitzig, fit_hg_pandas)
         else:
-            sorted_cov, log_fold, sorted_gc, hg = structure_data(sign_fit, cov, log_fold)
+            sorted_cov, log_fold, sorted_gc = structure_data(sign_fit, cov, log_fold)
+            sorted_gc.to_csv((os.path.join(args.outdir, \
+            f'{group1}vs{group2}_GC_fz.tsv')), sep='\t')
             # make the fitzig figure
             make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-            sample_type, args.outdir, args.groups, "fitzig.pdf", args.alpha_fitzig)
-        #os.remove(args.outdir + "BiG-MAP.table.txt")
+            sample_type, args.outdir, args.groups, fitzig_file, "fitzig", args.alpha_fitzig)
+        os.remove(os.path.join(args.outdir + "/BiG-MAP.table.txt"))
+        movetodir(args.outdir + os.sep, "tsv-results", ".tsv")
 
     if args.compare and not args.groups:
         print("Please profide the group information")
