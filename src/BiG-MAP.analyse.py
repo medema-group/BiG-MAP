@@ -775,7 +775,13 @@ def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, \
     eps_file = os.path.join(outdir, f"{file_name}.eps")
     index_names = list(sign_gc.index)
     for name in index_names:
-        y_axis_labels.append(name.split("Entryname=")[1].split("--SMASH")[0])
+        name_function = name.split("Entryname=")[1].split("--SMASH")[0]
+        gc_id = name.split("|")[1]
+        full_name=f"{name_function}--ID={gc_id}"
+        if len(full_name) > 80:
+            function, species = name_function.split("--OS=")
+            full_name=f"{function}\nOS={species}--ID={gc_id}"
+        y_axis_labels.append(full_name)
 
     with PdfPages(pdf_file) as pdf:
         fig = plt.figure(figsize=(90, 40))
@@ -801,11 +807,11 @@ def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, \
             legend.get_title().set_fontsize('40')
             cbar_ax = fig.add_axes([0.85, .52, .01, .1])
         else:
-            ax0.text(136.4, -2.5, 'Expression (RNA)', fontsize=40)
-            legend = plt.legend(bbox_to_anchor=(1.47, -8.5), frameon=False, \
+            ax0.text(125.4, -2.5, 'Expression (RNA)', fontsize=40)
+            legend = plt.legend(bbox_to_anchor=(1.37, -8.7), frameon=False, \
             prop={'size': 35}, title=metagroup)
             legend.get_title().set_fontsize('40')
-            cbar_ax = fig.add_axes([0.85, .60, .01, .1])
+            cbar_ax = fig.add_axes([0.87, .60, .01, .1])
 
         # heatmap of RPKM values on the first position of the grid
         ax1 = plt.subplot2grid((14, 14), (1, 2), colspan=9, rowspan=14)
@@ -828,11 +834,11 @@ def make_explore(sign_gc, cov, metadata, metagroup, sample_type, outdir, \
         if sample_type == "METATRANSCRIPTOMIC":
             # housekeeping genes heatmap in the thirth position of the grid
             ax3 = plt.subplot2grid((14, 14), (1, 12), colspan=1, rowspan=14)
-            cbar_ax = fig.add_axes([0.85, .40, .01, .1])
+            cbar_ax = fig.add_axes([0.87, .40, .01, .1])
             heatmap2 = sns.heatmap(sign_hg, xticklabels=True, \
             linewidths=.01, linecolor='black', yticklabels=False, ax=ax3, \
             cbar_ax=cbar_ax)
-            ax3.text(6, 8.4, 'Housekeeping \n genes', fontsize=40)
+            ax3.text(6.2, 8.4, 'Housekeeping \n genes', fontsize=40)
             ax3.set_xticklabels(sign_hg.columns, rotation=90, fontsize=30)
             ax3.set_ylabel('')
         plt.savefig(eps_file, format='eps')
@@ -875,7 +881,13 @@ def make_compare(sign_gc, log_fold, cov, metadata, metagroup, sample_type,\
     pdf_file = os.path.join(outdir, f"{file_name}.pdf")
     index_names = list(sign_gc.index)
     for name in index_names:
-        y_axis_labels.append(name.split("Entryname=")[1].split("--SMASH")[0])
+        name_function = name.split("Entryname=")[1].split("--SMASH")[0]
+        gc_id = name.split("|")[1]
+        full_name=f"{name_function}--ID={gc_id}"
+        if len(full_name) > 90:
+            function, species = name_function.split("--OS=")
+            full_name=f"{function}\nOS={species}--ID={gc_id}"
+        y_axis_labels.append(full_name)
     with PdfPages(pdf_file) as pdf:
         fig = plt.figure(figsize=(90, 40))
         fig.subplots_adjust(wspace=0.0, hspace=0.0) # space between the plots
@@ -1063,6 +1075,8 @@ def main():
                 kw_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, \
                 norm_df, args.groups, metadata)
                 sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
+                kw_hg_pandas = sort_housekeeping(sign_kw, kw_hg_pandas, cov)
+                kw_hg_pandas = kw_hg_pandas.replace(np.nan, 0.0)
                 kw_hg_pandas.to_csv((os.path.join(args.outdir, \
                 f'{group1}vs{group2}_HG_kw.tsv')), sep='\t')
                 sorted_gc.to_csv((os.path.join(args.outdir, \
@@ -1097,6 +1111,7 @@ def main():
             gc_names, sign_hg, id_list = get_relevant_hg(sign_fit, norm_df)
             fit_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, norm_df, args.groups, metadata)
             sorted_cov, log_fold, sorted_gc= structure_data(sign_fit, cov, log_fold)
+            fit_hg_pandas = sort_housekeeping(sign_fit, fit_hg_pandas, cov)
             fit_hg_pandas = fit_hg_pandas.replace(np.nan, 0.0)
             fit_hg_pandas.to_csv((os.path.join(args.outdir, \
             f'{group1}vs{group2}_HG_fz.tsv')), sep='\t')
