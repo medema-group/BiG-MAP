@@ -10,7 +10,7 @@ Date: 21/05/2019
 """
 
 # Import statements
-import os.path
+import os
 import subprocess
 from sys import argv
 import sys
@@ -118,13 +118,15 @@ def downloadSRA(acc, outdir):
         str, path to the output directory
     returns
     ----------
-    """
-    if os.path.exists("{}/{}.sra".format(outdir, acc)):
-        print("The srafile: {}.sra already exists in {}".format(acc,outdir))
-    else:
-        Path = "ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/{}/{}/{}/{}".format(acc[:3], acc[:6], acc, acc+".sra")
-        cmd_download = "wget {} -P {}".format(Path, outdir)
+   """
+    try:
+        output_file = os.path.join(outdir, acc + '.sra')
+        cmd_download = f"prefetch --type fastq {acc} -o {output_file} "
         res_download = subprocess.check_output(cmd_download, shell=True)
+        print(f'Downloading sample {acc}')
+    except:
+        print(f'Unable to downaload sample {acc}')
+        pass
     return()
 
 def convertSRAtofastq(acc, outdir):
@@ -141,9 +143,11 @@ def convertSRAtofastq(acc, outdir):
     if os.path.exists("{}/{}_pass_1.fastq.gz".format(outdir, acc)):
         print("The .fastq file for {}*.fastq.gz already exists in {}".format(acc, outdir))
     else:
+        sra_file = os.path.join(outdir, acc + '.sra')
         cmd = f"fastq-dump --gzip --skip-technical\
-        --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {outdir}/{acc}.sra"
+        --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {sra_file}"
         res_download = subprocess.check_output(cmd, shell=True)
+        print(f'Converting SRA {acc} into fastq format')
     return()
         
 def sendnotification(acc, outdir, lst):
@@ -176,9 +180,13 @@ def main():
     5) send notification for each download success
     """
     args = get_arguments()
-    print(args)
-    
     accessions = []
+    
+    #make output dir if it doesn't exist
+    try:
+        os.mkdir(args.outdir)
+    except:
+        pass
     
     if args.acclist:
         accessions = parseacclist(args.acclist)
