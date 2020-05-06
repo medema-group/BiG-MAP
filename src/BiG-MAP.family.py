@@ -19,11 +19,11 @@ Additional information:
 This script takes gut- and antiSMASH output directories as input,
 converts the .gbk files to fasta files and then calculates gene
 cluster families based on the similarity treshold (default=0.9) using
-fastANI. In addition, HMMer is used to find several relevant
+MASH. In addition, HMMer is used to find several relevant
 housekeeping genes from the whole genome genbank files, which are also
 present in the antiSMASH output. These housekeeping genes will be
 essential downstream for comparing the resutls of the gene clusters
-with resutls that are known a priori. The output consists of the
+with resutls that are known a priority. The output consists of the
 following items: GCFs clusters, GCF fasta file, Mash results, and
 optionally bigscape GCF clusters. Dependencies: BioPython, awk
 """
@@ -82,9 +82,9 @@ Options:
          clusters as well. This uses more disk space in the output 
          directory. 'True' | 'False'. Default = False
     -b   Name of the path to bigscape.py. Default = False
-    -p   Number of used parallel threads in the MASH and BiG-SCAPE
+    -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
-    --metratranscriptomics If the reads to analyze are from metatranscriptomes,
+    --metatranscriptomes If the reads to analyze are from metatranscriptomes,
         include this flag to start hourse-keeping genes analysis      
 ______________________________________________________________________
 ''')
@@ -131,7 +131,7 @@ def retrieveclusterfiles(indir):
         # In the case that the user just already inputs fasta
         # files, I can make sure that an error is captured
         # here. In that way, the program will skip this step and
-        # move straigth towards the fastANI computation.
+        # move straigth towards the Mash computation.
         pass
 
 
@@ -197,7 +197,6 @@ def parsegbkcluster(infile, nflank):
                     if kind == "biosynthetic":
                         core_index.append(feature_count)
             feature_count += 1
-
         # VALIDATION
         ##############################
         absolute_loc_start = record.annotations["structured_comment"]["antiSMASH-Data"]["Orig. start"]
@@ -227,6 +226,7 @@ def parsegbkcluster(infile, nflank):
         organism = organism.replace("(", "")
         organism = organism.replace(")", "")
         organism = organism.replace("/", "-")
+        organism = organism.replace('"', "")
     return (DNA, "".join(proteins), ":".join(GCs), organism, core_relative_locs, absolute_locs)
 
 
@@ -582,7 +582,7 @@ def writejson(dictionary, outdir, outfile_name):
 
 
 def applyfiltering(enzyme_locs, fastasimdict):
-    """Corrects the enzyme locs for fastani filtering
+    """Corrects the enzyme locs for Mash filtering
     """
     ret = {}
     for cluster_NR in fastasimdict.keys():
@@ -1048,14 +1048,14 @@ def main():
     ################################
     GC_enzyme_locs = {}  # storing the core + flanking genes locations
     genomedict = {}  # will be used to extract housekeeping genes
-    GC_prot_files = []  # will be used as fastANI input
-    GC_DNA_files = []  # will be used as fastANI input
+    GC_prot_files = []  # will be used as Mash input
+    GC_DNA_files = []  # will be used as Mash input
     absolute_locs = {}  # VALIDATION
     for d in args.indir:
         for f in retrieveclusterfiles(d):
             # Parsing each .gbk file
             DNAseq, AAseq, GC, organism, core_locs, abs_locs = parsegbkcluster(f, args.flank_genes)
-            # writing the full gene clusters to .fasta for fastANI
+            # writing the full gene clusters to .fasta for MASH
             prot_file, orgID, fasta_header = writefasta(AAseq, "GC_PROT", GC, organism, f, args.outdir)
             dna_file, orgID, fasta_header_DNA = writefasta(DNAseq, "GC_DNA", GC, organism, f, args.outdir)
             GC_prot_files.append(prot_file)
@@ -1117,20 +1117,21 @@ def main():
         # Run second redundancy filtering
         ###################################
         if args.bigscape_path:
+            parsed = {}
             list_gbkfiles = list_representatives(fastadict)
             print("________Preparing BiG-SCAPE input__________")
             for files in args.indir:
                 for gbk_file in retrieveclusterfiles(files):
                     movegbk(args.outdir, gbk_file, list_gbkfiles)
-                
-                print("__________Running BiG-SCAPE________________")
-                run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
 
-                for tsv_file in retrieve_bigscapefiles(args.outdir):
-                    parsed = parse_bigscape_result(tsv_file)
+            print("__________Running BiG-SCAPE________________")
+            run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
 
-                dict_json = make_jsondict(parsed, fastadict)
-                writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+            for tsv_file in retrieve_bigscapefiles(args.outdir):
+                parsed.update(parse_bigscape_result(tsv_file))
+
+            dict_json = make_jsondict(parsed, fastadict)
+            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
 
         #############################
         # Pickling
@@ -1228,6 +1229,7 @@ def main():
         # Run second redundancy filtering
         ###################################
         if args.bigscape_path:
+            parsed = {}
             list_gbkfiles = list_representatives(fastadict_ALL)
             print("________Preparing BiG-SCAPE input__________")
             for files in args.indir:
@@ -1237,7 +1239,7 @@ def main():
             run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
 
             for tsv_file in retrieve_bigscapefiles(args.outdir):
-                parsed = parse_bigscape_result(tsv_file)
+                parsed.update(parse_bigscape_result(tsv_file))
 
             dict_json = make_jsondict(parsed, fastadict_ALL)
             writejson(dict_json, args.outdir, "BiG-MAP.GCF")
