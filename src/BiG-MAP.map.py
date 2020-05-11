@@ -145,21 +145,16 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     writes the mapping percentage to bowtie2_log.txt
     """
     stem = Path(mate1).stem
-    sample = stem.split("_")[0]
+    sample = stem#.split("_")[0]
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
-    if fasta == True:
+    if fasta == "True":
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile} -f"
     else:
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile}"
     try:
         if not os.path.exists(samfile):
-
- #           print(f"the following command will be executed by bowtie2:\n\
-#_____________________________________________________\n\
-#{cmd_bowtie2_map}\n\
-#_____________________________________________________\n")
             print(f"  Dealing with sample {sample}")
             res_map = subprocess.check_output(cmd_bowtie2_map, shell=True, stderr=subprocess.STDOUT)
             # Saving mapping percentage:
@@ -577,7 +572,7 @@ def bedtoolscoverage(gfile, outdir, sortedbam):
     return (bg_file)
 
 
-def computetotalcoverage(bgfile):
+def computetotalcoverage(bgfile, RPKM):
     """computes the total coverage of a gene cluster from a .bg file
     parameters
     ----------
@@ -599,6 +594,9 @@ def computetotalcoverage(bgfile):
             if float(cov) == 0:  # enter no coverage values
                 nocov[cluster] += (float(end) - float(start))
     total_coverage = {}
+    if os.path.getsize(bgfile) == 0:
+        for keys in RPKM.keys():
+            total_coverage[keys] = 0.0
     for key in nocov.keys():
         perc = (clusterlen[key] - nocov[key]) / clusterlen[key]
         # Set treshold here!!!
@@ -644,7 +642,6 @@ def computecorecoverage(bedgraph, bedfile):
     ----------
     core_coverage = dict, {cluster: corecov}
     """
-
     def local_computecov(start_list, end_list, local_entry):
         """Computes the local cov value
         Ls = local entry start
@@ -898,7 +895,7 @@ def main():
         print("ERROR: -I1/-I2 and -U are mutually exclusive")
         sys.exit()
 
-    if json_file and bjson_file and not args.pickle_file:       
+    if json_file and bjson_file and not args.pickle_file:
         with open(json_file, "r") as jfile:
             family = json.load(jfile)
         with open(bjson_file, "r") as bjfile:
@@ -909,7 +906,7 @@ def main():
         parser.print_help()
         print("ERROR: -R/-F and -P are mutually exclusive")
         sys.exit()
-    
+
     try:
         os.mkdir(args.outdir)
     except:
@@ -946,7 +943,7 @@ def main():
         ##############################
         bedtools_gfile = preparebedtools(args.outdir + os.sep, countsfile)
         bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
-        coverage = computetotalcoverage(bedgraph)
+        coverage = computetotalcoverage(bedgraph, RPKM)
 
         if BGCF:
             coverage = correct_coverage(coverage, countsfile)

@@ -77,10 +77,14 @@ Options:
          similar in BiG-SCAPE. Default - 0.2
     -f   Specify here the number of genes that are flanking the core
          genes of the gene cluster. 0 --> only the core, n --> n
-         genes included that flank the core. default = 0
+         genes included that flank the core. Default = 0
     -g   Output whole genome fasta files for the MASH filtered gene 
          clusters as well. This uses more disk space in the output 
          directory. 'True' | 'False'. Default = False
+    -s   Specify the sketch size created by Mash. It is recommendend to read 
+         the Mash instructions when changing this parameter. Default = 5000
+    -k   Specify the k-mer size used by Mash. It is recommendend to read the
+         Mash instructions when changing this parameter. Default = 16
     -b   Name of the path to bigscape.py. Default = False
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
@@ -102,7 +106,11 @@ ______________________________________________________________________
     parser.add_argument("-b", "--bigscape_path", help=argparse.SUPPRESS, default=False)
     parser.add_argument("-pf", "--pfam", help=argparse.SUPPRESS, default=False)
     parser.add_argument("-c", "--cut-off", help=argparse.SUPPRESS, 
-                       type=float, default= 0.2)
+                       type=float, default= 0.2, required=False)
+    parser.add_argument("-k", "--kmer", help=argparse.SUPPRESS, 
+                       type=int, default= 16, required=False)
+    parser.add_argument("-s", "--sketch", help=argparse.SUPPRESS, 
+                       type=int, default= 5000, required=False)
     parser.add_argument("-p", "--threads", help=argparse.SUPPRESS,
                        type=int, required=False, default=6)
     parser.add_argument("--metatranscriptomes", "--metatranscriptomes", action='store_true', help=argparse.SUPPRESS, 
@@ -295,7 +303,7 @@ def locs2bedfile(indict, outfile):
 ######################################################################
 # similarity between gene clusters using MASH
 ######################################################################
-def make_sketch(outdir, option="GC"):
+def make_sketch(outdir, kmer, sketch):
     """
     Calculates the distance between the query fasta files
     stored in the sketch file by using mash.
@@ -311,21 +319,12 @@ def make_sketch(outdir, option="GC"):
     outlogfile = os.path.join(outdir, 'log.file')
     with open (outlogfile, "wb") as log_file:
         try:
-            if option == "GC":
-                outfile = os.path.join(outdir, 'mash_sketch')
-                inp = os.path.join(outdir, 'GC_PROT*')
-                cmd_mash = f"mash sketch -o {outfile} -k 16 -p 1 -s 5000 -a {inp}"
-                p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
-                stdout, stderr = p.communicate()
-                log_file.write(stderr)
-
-            elif option == "HG":
-                outfile = os.path.join(outdir, 'mash_sketch')
-                inp = os.path.join(outdir, 'HG_PROT*')
-                cmd_mash = f"mash sketch -o {outfile} -k 4 -p 1 -s 1000 -a {inp}"
-                p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
-                stdout, stderr = p.communicate()
-                log_file.write(stderr)
+            outfile = os.path.join(outdir, 'mash_sketch')
+            inp = os.path.join(outdir, 'GC_PROT*')
+            cmd_mash = f"mash sketch -o {outfile} -k {kmer} -p 1 -s {sketch} -a {inp}"
+            p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
+            stdout, stderr = p.communicate()
+            log_file.write(stderr)
 
         except(subprocess.CalledProcessError):
             # Raise error here for error table
@@ -1074,7 +1073,7 @@ def main():
     # Mash: similarity
     ################################
 
-    make_sketch(args.outdir)
+    make_sketch(args.outdir + os.sep, args.kmer, args.sketch)
 
     #checks the output of the mash sketch
     reruns = 0
@@ -1189,36 +1188,14 @@ def main():
                     gbktofasta(genomedict[orgID], os.path.join(args.outdir, organism +".fasta"), args.outdir + os.sep)
             processed.append(organism)
 
-        ################################
-        # housekeeping genes: Redundancy filtering
-        ################################
-
-        make_sketch(args.outdir + os.sep, "HG")
-        reruns = 0
-        total_reruns = 25
-        for i in range(total_reruns):
-            inp_file = os.path.join(args.outdir, 'log.file')
-            with open (inp_file, "r") as log_file:
-                if "ERROR" in log_file.read():
-                    make_sketch(args.outdir + os.sep, "HG")
-                    reruns += 1
-                    print("Encountered error in making sketch file. Retry attempt:", reruns)
-                    if reruns == total_reruns:
-                        sys.exit("Maximum number of reruns is reached. Try decreasing the number of cores (-p flag)")
-                    else:
-                        break
-        calculate_distance(args.outdir, "mash_output_HG.tab")
-
-        GCFs_ALL, distance_matrix_ALL = calculate_medoid(args.outdir, args.treshold_HG, GCFs, "mash_output_HG.tab")
-
-        fastadict_ALL = makefastaheadersim(GCFs_ALL)
-
+        for prot_file in HG_prot_files:
+            GCFs[prot_file] = [prot_file]
+        fastadict_ALL = makefastaheadersim(GCFs)
+        
         # Writing results to outdir
-        #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
         writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
         writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
-        writejson(distance_matrix_ALL, args.outdir, "BiG-MAP.dist_HG")
-        fasta_file = writeGCFfasta(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF.fna")
+        fasta_file = writeGCFfasta(GCFs, args.outdir, "BiG-MAP.GCF_HGF.fna")
 
         # Remembering the enzymatic gene locations
         GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
