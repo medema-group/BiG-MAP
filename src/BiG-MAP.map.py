@@ -145,11 +145,11 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     writes the mapping percentage to bowtie2_log.txt
     """
     stem = Path(mate1).stem
-    sample = stem#.split("_")[0]
+    sample = stem.split("_")[0]
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
-    if fasta == "True":
+    if fasta == True:
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile} -f"
     else:
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile}"
