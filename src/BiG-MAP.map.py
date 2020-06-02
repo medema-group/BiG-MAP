@@ -149,7 +149,7 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
-    if fasta == True:
+    if fasta == "True":
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile} -f"
     else:
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile}"
@@ -863,22 +863,6 @@ def main():
     6) cleaning output directory
     """
     parser, args = get_arguments()
-    
-    #get the output results from the family module
-    bed_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.bed')
-    if not os.path.exists(bed_file):
-        bed_file = os.path.join(args.family, 'BiG-MAP.GCF.bed')
-
-    reference = os.path.join(args.family, 'BiG-MAP.GCF_HGF.fna')
-    if not os.path.exists(reference):
-        reference = os.path.join(args.family, 'BiG-MAP.GCF.fna')
-
-    json_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.json')
-    if not os.path.exists(json_file):
-        json_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
-
-    bjson_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
-
 
     if args.fastq1 and args.fastq2 and not args.U_fastq:
         print("__________Fastq-files_________________________________")
@@ -895,13 +879,24 @@ def main():
         print("ERROR: -I1/-I2 and -U are mutually exclusive")
         sys.exit()
 
-    if json_file and bjson_file and not args.pickle_file:
+    if not args.family and args.pickle_file:
+        reference, family, BGCF, bed_file = unpickle_files(args.pickle_file, args.outdir + os.sep)
+    elif args.family:
+        #get the output results from the family module
+        bed_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.bed')
+        if not os.path.exists(bed_file):
+            bed_file = os.path.join(args.family, 'BiG-MAP.GCF.bed')
+        reference = os.path.join(args.family, 'BiG-MAP.GCF_HGF.fna')
+        if not os.path.exists(reference):
+            reference = os.path.join(args.family, 'BiG-MAP.GCF.fna')
+        json_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.json')
+        if not os.path.exists(json_file):
+            json_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
         with open(json_file, "r") as jfile:
             family = json.load(jfile)
+        bjson_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
         with open(bjson_file, "r") as bjfile:
             BGCF = json.load(bjfile)
-    elif not reference and not family and args.pickle_file:
-        reference, family, BGCF, bed_file = unpickle_files(args.pickle_file, args.outdir + os.sep)
     else:
         parser.print_help()
         print("ERROR: -R/-F and -P are mutually exclusive")
