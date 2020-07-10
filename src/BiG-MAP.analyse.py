@@ -991,6 +991,9 @@ def main():
         print("Please use the --compare or --explore flag")
         sys.exit()
     sample_type = (args.sample_type).upper()
+    #create output dir if it does not exist
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
 
     # Creating json formatted file from biom
     print("__________Loading biom file_______________________")
@@ -1007,6 +1010,7 @@ def main():
     gc_df = make_dataframe(gc_values, sample_list)
     norm_df = norm_log2_data(gc_df)
     gc_df.to_csv((os.path.join(args.outdir, 'all_RPKMs.tsv')), sep='\t')
+    norm_df.to_csv((os.path.join(args.outdir, 'all_RPKMs_norm.tsv')), sep='\t')
 
     if args.explore:
         print("__________Making explore heatmap__________________")
