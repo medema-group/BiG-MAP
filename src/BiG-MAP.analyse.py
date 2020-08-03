@@ -525,7 +525,7 @@ def run_fit_zig(biomfile, groups, data_group, biom_dict):
              ### run the fitZIG model
              fit <- fitZig(obj = MR_mod, mod = mod, useCSSoffset = F)
              ### perform FDR correction
-             MR_coefs <- MRcoefs(fit, by=2, number = 200, group = 2, \
+             MR_coefs <- MRcoefs(fit, by=2, number = length(d1), group = 2, \
              adjustMethod = "BH", alpha = 0,01, taxa = fit@taxa)
              MR_coefs$clust_name = rownames(MR_coefs)
              return(MR_coefs)
