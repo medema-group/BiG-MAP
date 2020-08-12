@@ -143,5 +143,3 @@ dependencies:
     - biom-format==2.1.7
     - click==7.0
     - future==0.17.1
-prefix: /lustre/BIF/nobackup/augus011/programs/miniconda3/envs/BiG-MAP_process
-
