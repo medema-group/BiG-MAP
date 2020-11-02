@@ -165,13 +165,13 @@ python3 BiG-MAP.analyse.py -h
 python3 BiG-MAP.analyse.py --explore --compare -B [biom_file] -T [metagenomic/metatranscriptomic] -M [metagroup] -O [outdir] [Options*]
 
 Example command for the explore heatmap:
-python3 BiG-MAP.analyse.py --explore -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --explore -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -O /mnt/scratch/usr001/results_analysis
 
 Example command for the compare heatmap:
-python3 BiG-MAP.analyse.py --compare -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
 
 Example command including both the explore and the compare heatmap:
-python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
 
 
 Output: 
