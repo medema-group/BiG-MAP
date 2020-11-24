@@ -95,18 +95,19 @@ sequence similarity as sole metric. For GCF computation, protein
 sequences are used while for the HGF computation DNA sequences are
 used. Mash is implemented to compute the GCFs and HGFs. The input
 consists of the output directories of anti- or gutSMASH. Options can
-be investigated by running the /-h/ flag. General usage is:
+be investigated by running the /-h/ flag. 
+
+General usage is:
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
-In the example of a gutSMASH run on 1520 (draft) reference genomes
-that are present in the gut, with a Mash threshold of 0.1 for GFCs
-and 0.1 for HGFs, no flanking genes of the core, no genome fasta file
-outputs, 6 process cores and making use of the additional BiG-SCAPE redundancy filtering step:
+
+We strongly recommend using BiG-SCAPE to group the gene clusters into Gene Cluster Families (GCFs). For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). Check the command below to see how to use BiG-SCAPE within BiG-MAP
+
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.family.py -tg 0.8 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/  -O /mnt/scratch/usr001/results_family/
+python3 BiG-MAP.family.py -tg 0.8 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/ -O /mnt/scratch/usr001/results_family/
 
 This yields:
 BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py
@@ -114,6 +115,18 @@ BiG-MAP.GCF_HGF.fna = Reference file to map the WGS reads to
 BiG-MAP.GCF_HGF.json = Dictionary that contains the GCFs and HGFs
 BiG-MAP.GCF.json = Dictionary that contains the BiG-SCAPE GCFs
 #+END_EXAMPLE
+
+From the command above, the gutSMASH-output folder should contain the results of several gutSMASH/antiSMASH runs and the flags used indicate:
+
+*-tg*:  Fraction between 0 and 1; the similarity treshold that determines when the protein sequences of the gene clusters can be considered similar. Default = 0.8.
+
+*-th*:  Fraction between 0 and 1; the similarity treshold that determines when the protein sequences of the housekeeping genes can be considered similar. Default = 0.1
+
+*-f*:   Specify here the number of genes that are flanking the core genes of the gene cluster. 0 --> only the core, n --> n genes included that flank the core. Default = 0
+
+*-g*:   Output whole genome fasta files for the MASH filtered gene clusters as well. This uses more disk space in the output directory. 'True' | 'False'. Default = False
+
+*-p*:   Number of used parallel threads in the BiG-SCAPE filtering step. Default = 6
 
 ** 3) BiG-MAP.map.py
 This module is designed to align the WGS (paired or unpaired) reads to
