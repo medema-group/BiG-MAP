@@ -79,14 +79,15 @@ command:
 python3 BiG-MAP.download.py -A Acc_list.txt -O /mnt/scratch/usr001/fastq/schirmer/
 
 Acc_list.txt:
-SRR5983273
-SRR5983265
-SRR5983266
-SRR5983268
-SRR5983270
-SRR5983271
-SRR5983275
-...
+SRR5947837
+SRR5947861
+SRR5947824
+SRR5947881
+SRR5947836
+SRR5947862
+SRR5947855
+SRR5947841
+
 #+END_EXAMPLE
 
 ** 2) BiG-MAP.family.py
@@ -95,18 +96,19 @@ sequence similarity as sole metric. For GCF computation, protein
 sequences are used while for the HGF computation DNA sequences are
 used. Mash is implemented to compute the GCFs and HGFs. The input
 consists of the output directories of anti- or gutSMASH. Options can
-be investigated by running the /-h/ flag. General usage is:
+be investigated by running the /-h/ flag. 
+
+General usage is:
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
-In the example of a gutSMASH run on 1520 (draft) reference genomes
-that are present in the gut, with a Mash threshold of 0.1 for GFCs
-and 0.1 for HGFs, no flanking genes of the core, no genome fasta file
-outputs, 6 process cores and making use of the additional BiG-SCAPE redundancy filtering step:
+
+We strongly recommend using BiG-SCAPE to group the gene clusters into Gene Cluster Families (GCFs). For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). Check the command below to see how to use BiG-SCAPE within BiG-MAP
+
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.family.py -tg 0.8 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/  -O /mnt/scratch/usr001/results_family/
+python3 BiG-MAP.family.py -tg 0.8 -th 0.1 -f 0 -g False -p 6 -D /mnt/scratch/usr001/gutSMASH-output/ -b /mnt/scratch/usr001/BiG-SCAPE_location/ -pf /mnt/scratch/usr001/pfam_files_location/ -O /mnt/scratch/usr001/results_family/
 
 This yields:
 BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py
@@ -114,6 +116,18 @@ BiG-MAP.GCF_HGF.fna = Reference file to map the WGS reads to
 BiG-MAP.GCF_HGF.json = Dictionary that contains the GCFs and HGFs
 BiG-MAP.GCF.json = Dictionary that contains the BiG-SCAPE GCFs
 #+END_EXAMPLE
+
+From the command above, the gutSMASH-output folder should contain the results of several gutSMASH/antiSMASH runs and the flags used indicate:
+
+*-tg*:  Fraction between 0 and 1; the similarity treshold that determines when the protein sequences of the gene clusters can be considered similar. Default = 0.8.
+
+*-th*:  Fraction between 0 and 1; the similarity treshold that determines when the protein sequences of the housekeeping genes can be considered similar. Default = 0.1
+
+*-f*:   Specify here the number of genes that are flanking the core genes of the gene cluster. 0 --> only the core, n --> n genes included that flank the core. Default = 0
+
+*-g*:   Output whole genome fasta files for the MASH filtered gene clusters as well. This uses more disk space in the output directory. 'True' | 'False'. Default = False
+
+*-p*:   Number of used parallel threads in the BiG-SCAPE filtering step. Default = 6
 
 ** 3) BiG-MAP.map.py
 This module is designed to align the WGS (paired or unpaired) reads to
@@ -136,13 +150,15 @@ from the GCFs and HGFs, and correct for the BiG-SCAPE GCFs, run:
 python3 BiG-MAP.map.py -th 10 -b /mnt/scratch/usr001/results/schirmer_metadata.txt -I1 /mnt/scratch/usr001/fastq/schirmer/*pass_1* -I2 /mnt/scratch/usr001/fastq/schirmer/*pass_2* -O /mnt/scratch/usr001/results_mapping/ -F /mnt/scratch/usr001/results_family/
 
 the schirmer_metadata.txt is set up as follows (tab-delimited):
-#run.ID         host.ID	        SampleType	     DiseaseStatus
-SRR5947852	C3001C10_MGX	METAGENOMIC	        CD
-SRR5947945	C3001C10_MTX	METATRANSCRIPTOMIC	CD
-SRR5947826	C3001C5_MGX	METAGENOMIC	        CD
-SRR5947900	C3001C5_MTX	METATRANSCRIPTOMIC	CD
-SRR5947876	C3001C9_MGX	METAGENOMIC	        CD
-SRR5947934	C3001C9_MTX	METATRANSCRIPTOMIC	CD
+#run.ID host.ID SampleType      DiseaseStatus
+SRR5947837      M2026C2_MGX     METAGENOMIC     UC
+SRR5947861      M2026C3_MGX     METAGENOMIC     UC
+SRR5947824      M2026C4_MGX     METAGENOMIC     UC
+SRR5947881      M2026C7_MGX     METAGENOMIC     UC
+SRR5947836      M2027C1_MGX     METAGENOMIC     CD
+SRR5947862      M2027C2_MGX     METAGENOMIC     CD
+SRR5947855      M2027C3_MGX     METAGENOMIC     CD
+SRR5947841      M2027C5_MGX     METAGENOMIC     CD
 
 note the '#' to denote the header row!!!
 #+END_EXAMPLE
@@ -165,20 +181,21 @@ python3 BiG-MAP.analyse.py -h
 python3 BiG-MAP.analyse.py --explore --compare -B [biom_file] -T [metagenomic/metatranscriptomic] -M [metagroup] -O [outdir] [Options*]
 
 Example command for the explore heatmap:
-python3 BiG-MAP.analyse.py --explore -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --explore -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.metacore.dec.biom -T metagenomic -M DiseaseStatus -O /mnt/scratch/usr001/results_analysis
 
 Example command for the compare heatmap:
-python3 BiG-MAP.analyse.py --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.metacore.dec.biom -T metagenomic -M DiseaseStatus -g UC CD -O /mnt/scratch/usr001/results_analysis
 
 Example command including both the explore and the compare heatmap:
-python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.biom -T metagenomic -M DiseaseStatus -g UC Control -O /mnt/scratch/usr001/results_analysis
+python3 BiG-MAP.analyse.py --explore --compare -B /mnt/scratch/usr001/results_mapping/biom-results/BiG-MAP.map.metacore.dec.biom -T metagenomic -M DiseaseStatus -g UC CD -O /mnt/scratch/usr001/results_analysis
 
+Note: You can either choose between the BiG-MAP.map.metacore.dec.biom or the BiG-MAP.mapcore.metacore.dec.biom as -B flag input file, depending if you are interested on plotting the results for the whole gene clusters or only the core genomic region of the gene clusters respectively.
 
 Output: 
 explore_heatmap.pdf & explore_heatmap.eps -> contains the top 20 best covered gene clusters
-UCvsControl_fz.pdf & UCvsControl_fz.eps -> comparison between UC and non-IBD using the fitZIG model
-UCvsControl_kw.pdf & UCvsControl_kw.eps -> comparison between UC and non-IBD using the Kruskal Wallis model
-tsv-results -> directory containing tsv files with the numeric results
+UCvsCD_fz.pdf & UCvsCD.eps -> comparison between UC and CD using the fitZIG model
+UCvsCD_kw.pdf & UCvsCD_kw.eps -> comparison between UC and CD using the Kruskal Wallis model
+tsv-results -> directory containing tsv files with the raw data
 #+END_EXAMPLE
 
 
