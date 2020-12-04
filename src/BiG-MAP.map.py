@@ -122,7 +122,6 @@ def bowtie2_index(reference, outdir):
         # Proper error here, also exit code
     return (index_name)
 
-
 def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     """Maps the .fq file to the reference (fasta)
     parameters
@@ -164,7 +163,6 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     except:
         print('Unable to run bowtie')
     return (samfile)
-
 
 def parse_perc(outdir):
     """parses the percentage from the bowtie2 stdout
@@ -226,7 +224,6 @@ def unpickle_files(pickled_file, outdir):
 
     return(fasta_file.name, GCF_dict, BGCF_dict, bed_file.name)
 
-
 ######################################################################
 # Functions for reading SAM and BAM files
 ######################################################################
@@ -253,7 +250,6 @@ def samtobam(sam, outdir):
         print("Unable to convert SAM file to BAM")
     return (bamfile)
 
-
 def sortbam(bam, outdir):
     """sorts the bam file
     parameters
@@ -275,7 +271,6 @@ def sortbam(bam, outdir):
         print('Unable to sort BAM file')
     return (sortedbam)
 
-
 def indexbam(sortedbam, outdir):
     """Builds a bam index
     parameters
@@ -294,7 +289,6 @@ def indexbam(sortedbam, outdir):
     except(subprocess.CalledProcessError):
         print("Unable to build index file")
     return ()
-
 
 def countbam(sortedbam, outdir):
     """calculates the raw counts from a BAM index
@@ -378,8 +372,6 @@ def correct_family_size(cluster, key, number_reads, GCF_dict):
 
     return(adj_key, read_total)
 
-
-
 def extractcorefrombam(bam, outdir, bedfile):
     """extracts regions in bedfile format from bam file
     parameters:
@@ -408,7 +400,6 @@ def extractcorefrombam(bam, outdir, bedfile):
         pass
     return (bamfile)
 
-
 ######################################################################
 # RPKM and TPM counting
 ######################################################################
@@ -430,18 +421,19 @@ def calculateTPM(countsfile):
     ratesum = 0
     with open(countsfile, "r") as f:
         for line in f:
-            line = line.strip()
-            cluster, length, nreads, nnoreads = line.split("\t")
-            if "NR" in cluster:
-                NR = float(cluster.split("--")[-1].split("=")[-1])
-                nreads = float(nreads) / NR
-            try:
-                rate = float(nreads) / float(length)
-                rates[cluster] = rate
-                ratesum += rate
-            except(ZeroDivisionError):
-                print('Unable to calculate TPM counts')
-                pass
+            if "*" not in line:
+                line = line.strip()
+                cluster, length, nreads, nnoreads = line.split("\t")
+                if "NR" in cluster:
+                    NR = float(cluster.split("--")[-1].split("=")[-1])
+                    nreads = float(nreads) / NR
+                try:
+                    rate = float(nreads) / float(length)
+                    rates[cluster] = rate
+                    ratesum += rate
+                except(ZeroDivisionError):
+                    print('Unable to calculate TPM counts')
+                    pass
     TPM = {}
     for key in rates:
         try:
@@ -449,7 +441,6 @@ def calculateTPM(countsfile):
         except(ZeroDivisionError):
             TPM[key] = 0
     return (TPM)
-
 
 def calculateRPKM(countsfile):
     """Calculates the RPKM values for a sample
@@ -488,7 +479,6 @@ def calculateRPKM(countsfile):
             RPKM[key] = 0
     return (RPKM)
 
-
 def parserawcounts(countsfile):
     """parses the raw counts from a countsfile
     parameters
@@ -511,7 +501,6 @@ def parserawcounts(countsfile):
                 else:
                     raw_counts[cluster] = float(nreads)
     return (raw_counts)
-
 
 ######################################################################
 # Functions for analysing coverage with Bedtools genomecov
@@ -543,7 +532,6 @@ def preparebedtools(outdir, reference):
 
     return (genome_file)
 
-
 def bedtoolscoverage(gfile, outdir, sortedbam):
     """computes the coverage for each mapped region
     parameters
@@ -570,7 +558,6 @@ def bedtoolscoverage(gfile, outdir, sortedbam):
     except(subprocess.CalledProcessError):
         pass
     return (bg_file)
-
 
 def computetotalcoverage(bgfile, RPKM):
     """computes the total coverage of a gene cluster from a .bg file
@@ -615,7 +602,6 @@ def correct_coverage(coverage, reference):
                 if orgname in name:
                     outdict[name] = coverage[key]
     return(outdict)
-
 
 def computecorecoverage(bedgraph, bedfile):
     """computes the core "enzymatic" coverage for gene clusters
@@ -891,12 +877,15 @@ def main():
             reference = os.path.join(args.family, 'BiG-MAP.GCF.fna')
         json_file = os.path.join(args.family, 'BiG-MAP.GCF_HGF.json')
         if not os.path.exists(json_file):
-            json_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
+            json_file = os.path.join(args.family, 'BiG-MAP.GCs.json')
         with open(json_file, "r") as jfile:
             family = json.load(jfile)
         bjson_file = os.path.join(args.family, 'BiG-MAP.GCF.json')
-        with open(bjson_file, "r") as bjfile:
-            BGCF = json.load(bjfile)
+        if os.path.exists(bjson_file):
+            with open(bjson_file, "r") as bjfile:
+                BGCF = json.load(bjfile)
+        else:
+            BGCF = ""
     else:
         parser.print_help()
         print("ERROR: -R/-F and -P are mutually exclusive")
@@ -926,7 +915,7 @@ def main():
         sortb = sortbam(b, args.outdir + os.sep)
         indexbam(sortb, args.outdir + os.sep)
         countsfile = countbam(sortb, args.outdir + os.sep)
-        if BGCF:
+        if not BGCF == "":
             countsfile = correct_counts(countsfile, BGCF)
 
         TPM = calculateTPM(countsfile)
@@ -940,7 +929,7 @@ def main():
         bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
         coverage = computetotalcoverage(bedgraph, RPKM)
 
-        if BGCF:
+        if not BGCF == "":
             coverage = correct_coverage(coverage, countsfile)
             # GCF and HGF consideration:
             TPM = familycorrect(TPM, BGCF)
@@ -970,7 +959,7 @@ def main():
             sortb = extractcorefrombam(sortb, args.outdir + os.sep, bed_file)
             indexbam(sortb, args.outdir + os.sep)
             countsfile = countbam(sortb, args.outdir + os.sep)
-            if BGCF:
+            if not BGCF == "":
                 countsfile = correct_counts(countsfile, BGCF)
 
             core_TPM = calculateTPM(countsfile)
@@ -980,10 +969,10 @@ def main():
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
 
             core_coverage = computecorecoverage(core_bedgraph, bed_file)
-            if BGCF:
+            if not BGCF == "":
                 core_coverage = correct_coverage(core_coverage, countsfile)
             # GCF and HGF consideration:
-            if BGCF:
+            if not BGCF == "":
                 core_TPM = familycorrect(core_TPM, BGCF)
                 core_RPKM = familycorrect(core_RPKM, BGCF)
                 core_raw = familycorrect(core_raw, BGCF)

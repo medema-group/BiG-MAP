@@ -31,7 +31,6 @@ optionally bigscape GCF clusters. Dependencies: BioPython, awk
 # Import statements
 import os
 import subprocess
-from sys import argv
 import sys
 import argparse
 from Bio import SeqIO
@@ -41,24 +40,21 @@ from pathlib import Path
 import numpy as numpy
 from Bio.SeqFeature import FeatureLocation, ExactPosition, BeforePosition, AfterPosition
 import pickle
-import time
 from subprocess import Popen, PIPE
-
 import shutil
-
 
 def get_arguments():
     """Parsing the arguments"""
     parser = argparse.ArgumentParser(description="",
-                                     usage=''' 
+                                     usage='''
 ______________________________________________________________________
-  BiG-MAP Family: creates a redundancy filtered reference fna 
+  BiG-MAP Family: creates a redundancy filtered reference fna
 ______________________________________________________________________
-Generic command: python3 BiG-MAP.family.py [Options]* 
+Generic command: python3 BiG-MAP.family.py [Options]*
 -D [input dir(s)] -O [output dir]
 Create a redundancy filtered fasta reference file from multiple
 anti/gutSMASH outputs. Use BiG-MAP_process conda environment.
-Obligatory arguments: 
+Obligatory arguments:
     -D   Specify the path to the directory containing the gut- or
          antiSMASH outputs here. This could be a singular directory,
          or a space seperated list of directories.
@@ -78,10 +74,10 @@ Options:
     -f   Specify here the number of genes that are flanking the core
          genes of the gene cluster. 0 --> only the core, n --> n
          genes included that flank the core. Default = 0
-    -g   Output whole genome fasta files for the MASH filtered gene 
-         clusters as well. This uses more disk space in the output 
+    -g   Output whole genome fasta files for the MASH filtered gene
+         clusters as well. This uses more disk space in the output
          directory. 'True' | 'False'. Default = False
-    -s   Specify the sketch size created by Mash. It is recommendend to read 
+    -s   Specify the sketch size created by Mash. It is recommendend to read
          the Mash instructions when changing this parameter. Default = 5000
     -k   Specify the k-mer size used by Mash. It is recommendend to read the
          Mash instructions when changing this parameter. Default = 16
@@ -89,32 +85,32 @@ Options:
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
     --metatranscriptomes If the reads to analyze are from metatranscriptomes,
-        include this flag to start hourse-keeping genes analysis      
+        include this flag to start hourse-keeping genes analysis
 ______________________________________________________________________
 ''')
 
     parser.add_argument("-D", "--indir", help=argparse.SUPPRESS, nargs="+", required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-tg", "--treshold_GC", help=argparse.SUPPRESS,
-                       required=False, default=0.8, type=float)
+                        required=False, default=0.8, type=float)
     parser.add_argument("-th", "--treshold_HG", help=argparse.SUPPRESS,
-                       required=False, default=0.1, type=float)
+                        required=False, default=0.1, type=float)
     parser.add_argument("-f", "--flank_genes",
-                       help=argparse.SUPPRESS, required=False, type=int, default=0)
+                        help=argparse.SUPPRESS, required=False, type=int, default=0)
     parser.add_argument("-g", "--genomefiles",
-                       help=argparse.SUPPRESS, required=False, type=bool, default=False)
+                        help=argparse.SUPPRESS, required=False, type=bool, default=False)
     parser.add_argument("-b", "--bigscape_path", help=argparse.SUPPRESS, default=False)
     parser.add_argument("-pf", "--pfam", help=argparse.SUPPRESS, default=False)
-    parser.add_argument("-c", "--cut-off", help=argparse.SUPPRESS, 
-                       type=float, default= 0.2, required=False)
-    parser.add_argument("-k", "--kmer", help=argparse.SUPPRESS, 
-                       type=int, default= 16, required=False)
-    parser.add_argument("-s", "--sketch", help=argparse.SUPPRESS, 
-                       type=int, default= 5000, required=False)
+    parser.add_argument("-c", "--cut-off", help=argparse.SUPPRESS,
+                        type=float, default=0.2, required=False)
+    parser.add_argument("-k", "--kmer", help=argparse.SUPPRESS,
+                        type=int, default=16, required=False)
+    parser.add_argument("-s", "--sketch", help=argparse.SUPPRESS,
+                        type=int, default=5000, required=False)
     parser.add_argument("-p", "--threads", help=argparse.SUPPRESS,
-                       type=int, required=False, default=6)
-    parser.add_argument("--metatranscriptomes", "--metatranscriptomes", action='store_true', help=argparse.SUPPRESS, 
-                        required=False)
+                        type=int, required=False, default=6)
+    parser.add_argument("--metatranscriptomes", "--metatranscriptomes",
+                        action='store_true', help=argparse.SUPPRESS, required=False)
     return (parser.parse_args())
 
 
@@ -212,23 +208,23 @@ def parsegbkcluster(infile, nflank):
         absolute_locs = [absolute_loc_start, absolute_loc_end]
         ##############################
 
-        if CDS_index.index(min(core_index)) - nflank < 0 or CDS_index.index(max(core_index)) + nflank + 1 > len(
-                CDS_index):
+        if CDS_index.index(min(core_index)) - nflank < 0 or \
+        CDS_index.index(max(core_index)) + nflank + 1 > len(CDS_index):
             print(
-                f"!!!flank_genes (-f) is higher than the number of flanking genes in the cluster of file: {infile}, using whole gene cluster instead!!!")
+                f"!!!flank_genes (-f) is higher than the number of flanking \
+                genes in the cluster of file: {infile}, using whole gene cluster instead!!!")
         if nflank == 0:
             core_relative_locs = [record.features[i].location for i in core_index]
         else:
             if CDS_index.index(min(core_index)) - nflank >= 0:
-                core_region = CDS_index[
-                              CDS_index.index(min(core_index)) - nflank:CDS_index.index(max(core_index)) + nflank + 1]
+                core_region = CDS_index[CDS_index.index(min(core_index)) - \
+                nflank:CDS_index.index(max(core_index)) + nflank + 1]
             else:
                 core_region = CDS_index[0:CDS_index.index(max(core_index)) + nflank + 1]
             core_relative_locs = [record.features[i].location for i in core_region]
 
         # Parsing the DNA sequence
         DNA = record.seq
-        # organism = record.annotations['definition'].replace(" ", "_")
         organism = record.description
         organism = "_".join(organism.split(",")[0].split()[:-1])
         organism = organism.replace("(", "")
@@ -264,8 +260,8 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     orgID = infile.split("/")[-1].split(".")[0]
     versionno = infile.split("/")[-1].split(".")[1]
     orgID = orgID[8:] if 'PROT' in orgID else orgID  # For housekeeping orgIDs
-   # Outfile = os.path.join(path, outdir, cluster, seqstype, orgID, organism, regionno '')
-    file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.{regionno}.fasta"
+    organism = organism[organism.index('_') + 1:]
+    file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{versionno}.{organism}.{regionno}.fasta"
     Outfile = os.path.join(outdir, file_name)
     fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
@@ -317,7 +313,7 @@ def make_sketch(outdir, kmer, sketch):
     ----------
     """
     outlogfile = os.path.join(outdir, 'log.file')
-    with open (outlogfile, "wb") as log_file:
+    with open(outlogfile, "wb") as log_file:
         try:
             outfile = os.path.join(outdir, 'mash_sketch')
             inp = os.path.join(outdir, 'GC_PROT*')
@@ -398,14 +394,15 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
             # If gene1 and gene2 don't overlap, then there are two options:
             # 1. gene1 and gene2 do belong to the same family, and the "not overlap" is "odd"
             #    in this case we accept gene2 into our family
-            # 2. gene1 and gene2 actually belong to different families, and we might have to create that family
+            # 2. gene1 and gene2 actually belong to different families,
+            #    and we might have to create that family
             if not overlap <= cut_off:
                 # gene1 doesn't overlap at all, so put that one into a separate family
                 if gene1 in family_by_gene.keys():
                     if family_by_gene[gene1] == family_name:
                         # gene1 is in our family, so record the distance
-                        add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2,
-                                            gene1, float(distance))
+                        add_to_distance_matrix(family_distance_matrices[family_name], \
+                        family_members[family_name], gene2, gene1, float(distance))
                     else:
                         # gene is above cut off or doesn't belong to the family
                         pass
@@ -416,13 +413,13 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
                     family_members[gene1_family_name] = []
                     family_distance_matrices[gene1_family_name] = []
                     # insert gene1 into that family as only member, with a distance of 0
-                    add_to_distance_matrix(family_distance_matrices[gene1_family_name], family_members[gene1_family_name],
-                                        gene1, gene1, float(distance))
+                    add_to_distance_matrix(family_distance_matrices[gene1_family_name], \
+                    family_members[gene1_family_name], gene1, gene1, float(distance))
             else:
                 # There is some overlap, and we want gene1 in this family
                 family_by_gene[gene1] = family_name
-                add_to_distance_matrix(family_distance_matrices[family_name], family_members[family_name], gene2, gene1,
-                                    float(distance))
+                add_to_distance_matrix(family_distance_matrices[family_name], \
+                family_members[family_name], gene2, gene1, float(distance))
     # For each family: Build a distance matrix, and then work out the mediod
     for family_name in family_by_gene_filtered.keys():
         # Calculate the mediod from the distances
@@ -548,7 +545,6 @@ def makefastaheadersim(sim_dict):
             fkey_contents[-1] = fkey_contents[-1].replace("HG_PROT", "HG_DNA")
             sf = "/".join(fkey_contents)
 
-            # sf = sf.replace("PROT", "DNA")
             with open(sf, "r") as s:
                 for line in s:
                     line = line.strip()
@@ -573,7 +569,7 @@ def writejson(dictionary, outdir, outfile_name):
     outfile
         name and path of the output file
     """
-    
+
     outfile = os.path.join(outdir, outfile_name + ".json")
     with open(outfile, "w") as w:
         w.write(json.dumps(dictionary, indent=4))
@@ -587,14 +583,6 @@ def applyfiltering(enzyme_locs, fastasimdict):
     for cluster_NR in fastasimdict.keys():
         NR_index = cluster_NR.find("--NR")
         cluster = cluster_NR[:NR_index]
-        """
-        if cluster == "gb|QRHI01000014|DNA--Entryname=D-R_unassigned_test--OS=Fusobacterium_mortiferum_strain_AM25-18LB--SMASHregion=region001--NR=2":
-            print(enzyme_locs[cluster])
-            print("________________________________________________________________________________")
-            ret[cluster_NR] = enzyme_locs[cluster]
-            print(ret)
-            sys.exit()
-        """
         ret[cluster_NR] = enzyme_locs[cluster]
     return (ret)
 
@@ -688,13 +676,12 @@ def prepareseqdb(genome_gbkfile, outdir):
     # parsing all protein sequences: Note that the genomic genbank
     # files are still high quality drafts, meaning that they contain
     # the scaffolds still and are not fully combined already.
-    # recordnumber = 0
     scaff_number = -1
     gbkcontents = SeqIO.parse(genome_gbkfile, "genbank")
     with open(os.path.join(outdir, "seqdb.faa"), "w") as db:
         for record in gbkcontents:
-            # recordnumber += 1
-            scaff_number = int(record.name[-3:])
+            record_no = record.name.split(".")[0]
+            scaff_number = int(record_no[-3:])
             for feature in record.features:
                 if feature.type == "CDS":
                     if "translation" in feature.qualifiers.keys():
@@ -794,7 +781,8 @@ def getgenefromgbk(gbkfile, location):  # change to work with locations
 
     gbkcontents = SeqIO.parse(gbkfile, "genbank")
     for record in gbkcontents:
-        scaff_check = int(record.name[-3:])  # = scaffold number
+        record_no = record.name.split(".")[0]
+        scaff_check = int(record_no[-3:])  # = scaffold number
         if scaff_check == scaff_number:
             DNA = record.seq
     ret = f.extract(DNA)  # The DNA sequence of the housekeepinggene
@@ -854,9 +842,6 @@ def list_representatives(GCF_dict):
     outlist: list, list of filenames
     """
     outlist = []
-
-   # with open(json_file, "r") as jfile:
-   #     GCF_dict = json.load(jfile)
 
     for key in GCF_dict.keys():
         GC_or_HG = key.split("|")[2].split("_")[0]
@@ -988,7 +973,7 @@ def make_jsondict(new_GCFs, old_GCFs):
                             json_dict[keys].append(full_names[key_names])
     return (json_dict)
 
-def pickle_files(GCF_dict, fasta_file, bed_file, outdir, BGCF_dict = ""):
+def pickle_files(GCF_dict, fasta_file, bed_file, outdir, BGCF_dict=""):
     """Pickle the output files for later use
     ----------
     GCF_dict
@@ -1005,10 +990,10 @@ def pickle_files(GCF_dict, fasta_file, bed_file, outdir, BGCF_dict = ""):
     fasta_dict = {}
     bed_list = []
     outfile = open(os.path.join(outdir, "BiG-MAP.pickle"), "wb")
-    with open (fasta_file, "r") as fasta_file:
+    with open(fasta_file, "r") as fasta_file:
         for seq in SeqIO.parse(fasta_file, 'fasta'):
             fasta_dict[seq.id] = seq.seq
-    with open (bed_file, "r") as bed_files:
+    with open(bed_file, "r") as bed_files:
         for line in bed_files:
             bed_list.append(line)
 
@@ -1100,7 +1085,7 @@ def main():
         ###############################
         # LSH buckets clustering
         ###############################
-        
+
         # Writing results to outdir
         #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
         writejson(fastadict, args.outdir, "BiG-MAP.GCs")
@@ -1149,8 +1134,7 @@ def main():
         purge(args.outdir, "log.file")
 
     else:
-            
-        print("___________Adding housekeeping genes________________")
+        print("_________Adding housekeeping genes_________")
 
         ################################
         # housekeeping genes: Obtainging
@@ -1172,26 +1156,29 @@ def main():
                 for gene, loc in genelocs.items():
                     prot_seq = getprotseqfromdb(seqdb, loc)
                     DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
-                    f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", gene, organism, fname,
-                                                                                                                     args.outdir + os.sep)
-                    f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", gene, organism, fname, args.outdir + os.sep)
+                    f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", \
+                    gene, organism, fname, args.outdir + os.sep)
+                    f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", \
+                    gene, organism, fname, args.outdir + os.sep)
                     HG_prot_files.append(f_prot)
                     HG_DNA_files.append(f_DNA)
 
                     # Remembering the locations
                     GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
                     absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
-                print(f"__________DONE: {organism}")
+                    organism_name = organism[organism.index(".") + 1:]
+                print(f"__________DONE: {organism_name}")
 
                 # Convert genome.gbk --> genome.fasta and store in outdir
                 if args.genomefiles:
-                    gbktofasta(genomedict[orgID], os.path.join(args.outdir, organism +".fasta"), args.outdir + os.sep)
+                    gbktofasta(genomedict[orgID], os.path.join(args.outdir, \
+                    organism +".fasta"), args.outdir + os.sep)
             processed.append(organism)
 
         for prot_file in HG_prot_files:
             GCFs[prot_file] = [prot_file]
         fastadict_ALL = makefastaheadersim(GCFs)
-        
+
         # Writing results to outdir
         writejson(fastadict_ALL, args.outdir, "BiG-MAP.GCF_HGF")
         writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
