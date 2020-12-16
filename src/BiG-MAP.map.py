@@ -1,8 +1,8 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 """
 --------------- Mapping module ---------------
-Author: Koen van den Berg & Hannah Augustijn
+Author: Koen van den Berg, Hannah Augustijn, Victoria Pascal Andreu
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 21/01/2019
@@ -10,11 +10,9 @@ Date: 21/01/2019
 
 The purpose of this script is to map the metagenomic and
 metatranscriptomic samples to the fasta database that has been created
-by module 2. This will allow to find the abundance and expression for
-the found metabolic gene clusters and biosynthetic gene clusters by
-gutSMASH and antiSMASH respecively. The core of this part of the
-pipeline will consist of bowtie2 which, according to my BSC thesis,
-performs most optimal using the sensitive-local setting. 
+by the family module. This will allow to find the abundance and expression 
+for the found metabolic gene clusters and biosynthetic gene clusters by
+gutSMASH and antiSMASH respecively. 
 """
 
 # Import statements:
@@ -37,7 +35,7 @@ def get_arguments():
     parser = argparse.ArgumentParser(description="",
     usage='''
 ______________________________________________________________________
-     BiG-MAP map: maps the paired reads to the predicted MGCs
+     BiG-MAP map: maps the reads to the predicted MGCs
 ______________________________________________________________________
 Generic command: python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} -O [outdir] -F [family] [Options*]
 Maps the metagenomic/metatranscriptomic reads to the fasta reference
@@ -47,14 +45,14 @@ Data inputs: either paired or unpaired
     -I1   Provide the mate 1s of the paired metagenomic and/or
           metatranscriptomic samples here. These samples should be
           provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
-          can be a space seperated list from the command line.
+          can be a space separated list from the command line.
     -I2   Provide the mate 2s of the paired metagenomic and/or
           metatranscriptomic samples here. These samples should be
           provided in fastq-format (.fastq, .fq, .fq.gz). Also, this 
-          can be a space seperated list from the command line.
+          can be a space separated list from the command line.
     -U    Provide the unpaired metagenomic/metatranscriptomic samples
           here. These samples should be provided in fastq-format
-          (.fastq, .fq, .fq.gz). Also, this can be a space seperated
+          (.fastq, .fq, .fq.gz). Also, this can be a space separated
           list from the command line.
 File inputs: either separated or pickled:
     -F    Directory with all the output files from the family module 
@@ -76,7 +74,7 @@ Options:
     -s    Bowtie2 setting: 
           END-TO-END mode: very-fast, fast, sensitive, very-sensitive
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
-          very-sensitive-local. DEFAULT = fast
+          very-sensitive-local. Default = fast
     -th   Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
 ''')
@@ -843,7 +841,8 @@ def main():
     1) preparation of mapping (=alignment)
     2) bowtie2 for mapping, counting reads
     3) bedtools for computing coverage for each cluster
-    4) using the fastANI result for adding HGF values
+    4) using the MASH result for adding HG values and 
+       correct for BiG-SCAPE GCFs
     5) saving all the results in dictionary (=memory)
     5) writing the results to .json (=BIOM) and .csv
     6) cleaning output directory

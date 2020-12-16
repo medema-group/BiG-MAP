@@ -1,31 +1,22 @@
-# ! /usr/bin/env python3
+#!/usr/bin/env python3
 
 """
 --------------- MGC/BGC module ---------------
-Author: Koen van den Berg
+Author: Koen van den Berg, Hannah Augustijn, Victòria Pascal Andreu
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 21/05/2019
 ----------------------------------------------
-This code was inspired by the BiG-SCAPE project, which can be found
-at: https://git.wageningenur.nl/medema-group/BiG-SCAPE/blob/master/. I
-highly recommend someone that would like to alter this script to also
-take a look there.
-The general idea of this script is to create a GCFs database (.fasta)
-to use as input for the pipeline. It parses the DNA and protein
-sequences from the antiSMASH genbank files, calculates GCFs using
-mash, and outputs the database.
-Additional information:
 This script takes gut- and antiSMASH output directories as input,
 converts the .gbk files to fasta files and then calculates gene
-cluster families based on the similarity treshold (default=0.9) using
+cluster families based on the similarity threshold (default=0.9) using
 MASH. In addition, HMMer is used to find several relevant
 housekeeping genes from the whole genome genbank files, which are also
 present in the antiSMASH output. These housekeeping genes will be
-essential downstream for comparing the resutls of the gene clusters
-with resutls that are known a priority. The output consists of the
+essential downstream for comparing the results of the gene clusters
+with results that are known a priority. The output consists of the
 following items: GCFs clusters, GCF fasta file, Mash results, and
-optionally bigscape GCF clusters. Dependencies: BioPython, awk
+optionally BiG-SCAPE GCF clusters. Dependencies: BioPython, awk
 """
 
 # Import statements
@@ -57,15 +48,15 @@ anti/gutSMASH outputs. Use BiG-MAP_process conda environment.
 Obligatory arguments:
     -D   Specify the path to the directory containing the gut- or
          antiSMASH outputs here. This could be a singular directory,
-         or a space seperated list of directories.
+         or a space separated list of directories.
     -O   Put path to the folder where the MASH filtered gene cluster
          files should be located here. The folder should be an
          existing folder. Default = current folder (.)
 Options:
-    -tg  Fraction between 0 and 1; the similarity treshold that
+    -tg  Fraction between 0 and 1; the similarity threshold that
          determines when the protein sequences of the gene clusters
          can be considered similar. Default = 0.8.
-    -th  Fraction between 0 and 1; the similarity treshold that
+    -th  Fraction between 0 and 1; the similarity threshold that
          determines when the protein sequences of the housekeeping genes
          can be considered similar. Default = 0.1
     -c   Fraction between 0 and 1; the cut-off that determines when
@@ -77,23 +68,23 @@ Options:
     -g   Output whole genome fasta files for the MASH filtered gene
          clusters as well. This uses more disk space in the output
          directory. 'True' | 'False'. Default = False
-    -s   Specify the sketch size created by Mash. It is recommendend to read
+    -s   Specify the sketch size created by Mash. It is recommended to read
          the Mash instructions when changing this parameter. Default = 5000
-    -k   Specify the k-mer size used by Mash. It is recommendend to read the
+    -k   Specify the k-mer size used by Mash. It is recommended to read the
          Mash instructions when changing this parameter. Default = 16
     -b   Name of the path to bigscape.py. Default = False
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
     --metatranscriptomes If the reads to analyze are from metatranscriptomes,
-        include this flag to start hourse-keeping genes analysis
+        include this flag to start house-keeping genes analysis
 ______________________________________________________________________
 ''')
 
     parser.add_argument("-D", "--indir", help=argparse.SUPPRESS, nargs="+", required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
-    parser.add_argument("-tg", "--treshold_GC", help=argparse.SUPPRESS,
+    parser.add_argument("-tg", "--threshold_GC", help=argparse.SUPPRESS,
                         required=False, default=0.8, type=float)
-    parser.add_argument("-th", "--treshold_HG", help=argparse.SUPPRESS,
+    parser.add_argument("-th", "--threshold_HG", help=argparse.SUPPRESS,
                         required=False, default=0.1, type=float)
     parser.add_argument("-f", "--flank_genes",
                         help=argparse.SUPPRESS, required=False, type=int, default=0)
@@ -353,7 +344,7 @@ def calculate_distance(outdir, output_file="mash_output_GC.tab"):
 ######################################################################
 def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
     """
-    calculates the GCFs based on similarity treshold
+    calculates the GCFs based on similarity threshold
     parameters and calculates the medoid of that GCF
     ----------
     outdir
@@ -652,8 +643,8 @@ def gbktofasta(gbkfile, fastafile, outdir):
 ######################################################################
 # Housekeeping genes: HMMer
 #
-# Here I look through every protein sequence present in the whole
-# genome sequence file. I first parse every protein sequence from the
+# Here we look through every protein sequence present in the whole
+# genome sequence file. We first parse every protein sequence from the
 # whole genome genbank file with the DNA coordination. Then, hmmsearch
 # is used search this database for housekeeping sequences using
 # housekeeping genes hmms. The best hits are taken out, and since the
@@ -1077,7 +1068,7 @@ def main():
 
     calculate_distance(args.outdir + os.sep)
 
-    GCFs, distance_matrix = calculate_medoid(args.outdir + os.sep, args.treshold_GC)
+    GCFs, distance_matrix = calculate_medoid(args.outdir + os.sep, args.threshold_GC)
 
     if not args.metatranscriptomes:
         fastadict = makefastaheadersim(GCFs)

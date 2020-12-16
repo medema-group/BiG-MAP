@@ -1,8 +1,8 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 """
 --------------- Analyse module ---------------
-Authors: Hannah Augustijn
+Authors: Hannah Augustijn, Koen van den Berg, Victoria Pascal Andreu
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 09/03/2020
@@ -10,7 +10,7 @@ Date: 09/03/2020
 This script performs a statistical analysis of the
 metagenomic/metatranscriptomic samples. First, the script
 normalizes and filters the data. Next, the best covered gene
-clusters can be obseverd and the Kruskal Wallis and fitZIG model
+clusters can be observed and the Kruskal Wallis and fitZIG model
 will be used to compute differentially abundant/expressed gene clusters.
 Benjamini-Hochberg FDR compensates for multiple hypothesis testing.
 The output of the script are heatmaps in pdf format.
@@ -260,7 +260,6 @@ def make_dataframe(gc_ids, sample_ids):
 
 def norm_log2_data(df):
     """Normalization and log2 convertion as performed by metagenomeseq
-    For more information on this calculation see:
     ----------
     df
         dataframe, rows with samples, columns with GC and RPKM values

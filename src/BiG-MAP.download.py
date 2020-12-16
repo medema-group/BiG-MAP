@@ -1,8 +1,8 @@
- #! /usr/bin/env python3
+#!/usr/bin/env python3
 
 """
 --------------- Download module ---------------
-Author: Koen van den Berg
+Author: Koen van den Berg, Hannah Augustijn, Victoria Pascal Andreu
 University: Wageningen University and Research
 Department: Department of Bioinformatics
 Date: 21/05/2019
