@@ -33,6 +33,7 @@ from Bio.SeqFeature import FeatureLocation, ExactPosition, BeforePosition, After
 import pickle
 from subprocess import Popen, PIPE
 import shutil
+from glob import glob
 
 def get_arguments():
     """Parsing the arguments"""
@@ -47,7 +48,7 @@ Create a redundancy filtered fasta reference file from multiple
 anti/gutSMASH outputs. Use BiG-MAP_process conda environment.
 Obligatory arguments:
     -D   Specify the path to the directory containing the gut- or
-         antiSMASH outputs here. This could be a singular directory,
+         antiSMASH output here. This could be a singular directory,
          or a space separated list of directories.
     -O   Put path to the folder where the MASH filtered gene cluster
          files should be located here. The folder should be an
@@ -122,11 +123,7 @@ def retrieveclusterfiles(indir):
             for f in files:
                 if f.endswith(".gbk") and "region" in f:
                     yield (os.path.join(dirpath, f))
-    except:  # Include actual exception here
-        # In the case that the user just already inputs fasta
-        # files, I can make sure that an error is captured
-        # here. In that way, the program will skip this step and
-        # move straigth towards the Mash computation.
+    except:
         pass
 
 
@@ -422,7 +419,7 @@ def calculate_medoid(outdir, cut_off, med={}, input_file="mash_output_GC.tab"):
 
 def add_new_gene(distance_matrix, gene_list, gene):
     """
-    Adds a distance matrix to
+    Adds a distance matrix
     ----------
     distance_matrix
         {fasta file name: distance matrix}
@@ -684,6 +681,8 @@ def prepareseqdb(genome_gbkfile, outdir):
 
 def hmmsearch(seqdb, hmmfiles, outdir):
     """searches the seqdb for housekeeping genes profiles
+    parameters
+    ----------
     seqdb
         string, name of the seqdb file
     returns
@@ -1048,6 +1047,10 @@ def main():
     ################################
     # Mash: similarity
     ################################
+    if not glob(os.path.join(args.outdir, 'GC_PROT*')):
+        sys.exit("BiG-MAP was unable to find predicted gene clusters by anti- or gutSMASH.\
+\nPlease check the tutorial (https://github.com/medema-group/BiG-MAP) for more information \
+concerning the input files of this module.")
 
     make_sketch(args.outdir + os.sep, args.kmer, args.sketch)
 

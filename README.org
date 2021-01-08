@@ -91,7 +91,9 @@ SRR5947841
 #+END_EXAMPLE
 
 ** 2) BiG-MAP.family.py
-The main purpose of this script is to compute GCFs using sequence similarity as sole metric. The sequence similarity program Mash is implemented to compute the GCFs of protein sequences. Additionally, a second round of redundancy filtering can be performed with the use of BiG-SCAPE. BiG-MAP.family takes as input the output directories of anti- or gutSMASH. Options can be investigated by running the /-h/ flag.
+The main purpose of this script is to compute GCFs using sequence similarity as sole metric. The sequence similarity program Mash is implemented to compute the GCFs of protein sequences. Additionally, a second round of redundancy filtering can be performed with the use of BiG-SCAPE.
+
+BiG-MAP.family takes as input the output directories of anti- or gutSMASH. Therefore, either one of these tools has to been used to predict gene clusters before running BiG-MAP. An example of a gutSMASH output folder can been observed in the [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder (not meant for running purposes!).
 
 General usage is:
 #+BEGIN_EXAMPLE
@@ -130,7 +132,7 @@ This module is designed to align the WGS (paired or unpaired) reads to the refer
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.map.py -h
-python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-R [reference] -F [family] | -P [pickled file]} -O [outdir]  [Options*]
+python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-R [reference] -F [family] | -P [pickled file]} -O [outdir] -b [metadata] [Options*]
 #+END_EXAMPLE
 
 To map the 10 samples from Schirmer et al. (2018) to the GCF reference representatives, and correct for the BiG-SCAPE GCFs, run:
