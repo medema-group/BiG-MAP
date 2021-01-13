@@ -20,7 +20,7 @@ of 4 different modules:
 - BiG-MAP.map.py
 - BiG-MAP.analyse.py
 
-For information on how to install and run BiG-MAP, check this *tutorial*.
+For information on how to install and run BiG-MAP, check this *tutorial*. Please, take into account that this tool has been only tested on Ubuntu.
 
 * Installation
 Install BiG-MAP dependencies using conda. Conda can be installed from
