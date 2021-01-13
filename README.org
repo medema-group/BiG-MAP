@@ -70,7 +70,7 @@ conda activate BiG-MAP_process
 python3 BiG-MAP.download.py -h
 python3 BiG-MAP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
 #+END_EXAMPLE
-To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and use the BioProject record of interest. Next, from the resulting page, download the *Accession list*. This is file that contains a list of sample accessions and it is used as input for the BiG-MAP.downaload module. In this tutorial, the IBD-cohort of Schirmer et al. (2018) is used, thus the Accession list of the BioProject PRJNA389280 was downloaded. With the aim of simplifying the tutorial and speeding up the analysis, 8 metagenomic samples were chosen: 4 samples from patients suffering Crohn Disease (CD) and 4 from Ulcerative Colitis (UC). Create a file with the following 8 samples' accessions and run BiG-MAP.download command to get the fastq files:
+To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and use the BioProject record of interest. Next, from the resulting page, download the *Accession list*. This is a file that contains a list of sample accessions and it is used as input for the BiG-MAP.download module. In this tutorial, the IBD-cohort of Schirmer et al. (2018) is used, thus the Accession list of the BioProject PRJNA389280 was downloaded. With the aim of simplifying the tutorial and speeding up the analysis, 8 metagenomic samples were chosen: 4 samples from patients suffering Crohn Disease (CD) and 4 from Ulcerative Colitis (UC). Create a file with the following 8 samples' accessions and run BiG-MAP.download command to get the fastq files:
 
 #+BEGIN_EXAMPLE
 
@@ -96,7 +96,6 @@ BiG-MAP.family takes as input the output directories of any anti- or gutSMASH ru
 
 Check the command below to see how to use BiG-SCAPE within BiG-MAP:
 
-General usage is:
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.family.py -h
@@ -107,9 +106,9 @@ python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 python3 BiG-MAP.family.py -D /usr001/gutSMASH-output/ -b /usr001/BiG-SCAPE_location/ -pf /usr001/pfam_files_location/ -O /usr001/results_family/
 
 This yields:
-BiG-MAP.GCF_HGF.bed = Bedfile to extract core regions in BiG-MAP.map.py
-BiG-MAP.GCF_HGF.fna = Reference file to map the WGS reads to
-BiG-MAP.GCF_HGF.json = Dictionary that contains the GCFs and HGFs
+BiG-MAP.GCF.bed = Bedfile to extract core regions in BiG-MAP.map.py
+BiG-MAP.GCF.fna = Reference file to map the WGS reads to
+BiG-MAP.GCs.json = Dictionary that contains the GCFs
 BiG-MAP.GCF.json = Dictionary that contains the BiG-SCAPE GCFs
 #+END_EXAMPLE
 
@@ -151,7 +150,7 @@ SRR5947862	M2027C2_MGX	METAGENOMIC	CD
 SRR5947855	M2027C3_MGX	METAGENOMIC	CD
 SRR5947841	M2027C5_MGX	METAGENOMIC	CD
 
-note the '#' to note the header row!!!
+note the '#' to denote the header row!!!
 #+END_EXAMPLE
 
 ** 4) BiG-MAP.analyse.py
