@@ -4,23 +4,23 @@
 [[https://github.com/medema-group/BiG-MAP/blob/master/Pipeline_overview.png]]
 
 This is the Github repository for the Biosynthetic Gene cluster
-Meta'omics abundance Profiler (BiG-MAP). For the analysis of bacterial
-metagenomic and metatranscriptomic samples more and more tools become
-available, although these tools are not capable of profiling specific
-metabolic gene clusters (MGCs), that have been shown to be major
-phenotype drivers. Therefore, this tool is focused on finding the
-representation of MGCs and their related homologs in metagenomic and
-metatranscriptomic samples. These pathways are readily obtained from
-(draft) bacterial genomes using antiSMASH or gutSMASH. To be able to
-process the outputs from these tools into proper abundance and
-expressions values, the following programs form the essential part of
-BiG-MAP:
+Meta'omics abundance Profiler (BiG-MAP). Metabolic Gene Clusters 
+(MGCs) are responsible of the synthesis of small molecules, that 
+are known to have a major impact on the host. To evaluate their 
+contribution to a given host phenotype, it is important to assess 
+the MGC abundance and expression profile in a given dataset.Thus, 
+we have built BiG-MAP, a bioinformatic tool to profile abundance 
+and expression levels of gene clusters across metagenomic and 
+metatranscriptomic data and evaluate their differential abundance 
+and expression between different conditions. BiG-MAP is composed 
+of 4 different modules:
+
 - BiG-MAP.download.py
 - BiG-MAP.family.py
 - BiG-MAP.map.py
 - BiG-MAP.analyse.py
-For information on how to implement this program, scroll down to
-*Overview and example run*. 
+
+For information on how to install and run BiG-MAP, check this *tutorial*.
 
 * Installation
 Install BiG-MAP dependencies using conda. Conda can be installed from
@@ -41,42 +41,38 @@ Then install all the dependencies from the BiG-MAP.yml file with:
 ~$ conda activate BiG-MAP_analyse
 
 #+END_EXAMPLE
-To make use of the second redundancy filtering step, download BiG-SCAPE using: 
+This step is optional but to make use of the second redundancy filtering step in the BiG-MAP.family module, download BiG-SCAPE using: 
 #+BEGIN_EXAMPLE
 ~$ git clone https://git.wageningenur.nl/medema-group/BiG-SCAPE
 #+END_EXAMPLE
 
-After this all the dependencies are installed. BiG-MAP can now be used. 
+Further below you will find more information on how to install BiG-SCAPE and its dependencies, but you can also check the wiki page for more information: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. 
 
 * Overview and example run
-A typical workflow for BiG-MAP consists of the following 4 consecutive steps:
-1) Downloading WGS data using BiG-MAP.download.py
-2) Generating gene cluster families (GCFs) and housekeeping gene
+The typical workflow for BiG-MAP consists of the following steps:
+1) Download WGS data using BiG-MAP.download.py (Optional)
+2) Group gene clusters onto gene cluster families (GCFs) and housekeeping gene
    families (HGFs) using BiG-MAP.family.py
-3) Computing abundance and expression profiles of selected
-   representatives from each GCF and HGF using BiG-MAP.map.py
-4) Analyzing the resulting BIOM file for profiles using
-   BiG-MAP.analyse.py
-The four steps are described below, and for each an example is
-provided. 
+3) Assess gene cluster (and HGF representatives) abundance and expression profiles of selected
+   using BiG-MAP.map.py
+4) Performs differential abundance/expression analysis and visualizes the output
+   using BiG-MAP.analyse.py
+
+The four steps are described more in detail below where you will find the commands to run them. 
 
 ** 1) BiG-MAP.download.py
 This script is created to easily download the metagenomic and/or
-metatranscriptomic samples from the online NCBI repository. First, the
+metatranscriptomic samples available in the SRA repository (https://www.ncbi.nlm.nih.gov/sra). First, the
 samples are downloaded in /.SRA/ format, and then they are converted
-into /.fastq/ pairs using /fastq-dump/. 
+into /.fastq/ using /fastq-dump/. 
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.download.py -h
 python3 BiG-MAP.download.py [Options]* -A [accession_list_file] -O [path_to_outdir]
 #+END_EXAMPLE
-To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and fill in the
-study code. For the IBD-cohort of Schirmer et al. (2018) that is
-PRJNA389280. Next, select the accessions and click *Accession List* to
-download the accessions. To follow the BiG-MAP tutorial, please use this 
-accession file in the following command:
+To download the samples, go to the [[https://www.ncbi.nlm.nih.gov/Traces/study/][SRA run selector]] and use the BioProject record of interest. Next, from the resulting page, download the *Accession list*. This is file that contains a list of sample accessions and used as input for the BiG-MAP.downaload module. In this tutorial, the IBD-cohort of Schirmer et al. (2018) is used, thus the Accession list of the BioProject PRJNA389280 was downloaded. With the aim of simplifying the tutorial and speeding up the analysis, 8 metagenomic samples were chosen: 4 samples from patients suffering Crohn Disease (CD) and 4 from Ulcerative Colitis (UC). Create a file with the following 8 sample accessions and run BiG-MAP.download command to get the fastq files:
+
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.download.py -A Acc_list.txt -O /usr001/fastq/schirmer/
 
 Acc_list.txt:
 SRR5947837
@@ -88,12 +84,15 @@ SRR5947862
 SRR5947855
 SRR5947841
 
+python3 BiG-MAP.download.py -A Acc_list.txt -O /usr001/fastq/schirmer/
+
 #+END_EXAMPLE
 
 ** 2) BiG-MAP.family.py
-The main purpose of this script is to compute GCFs using sequence similarity as sole metric. The sequence similarity program Mash is implemented to compute the GCFs of protein sequences. Additionally, a second round of redundancy filtering can be performed with the use of BiG-SCAPE.
+The main purpose of this module is to group gene clusters into GCFs using sequence similarity. The first redundancy filtering step is performed by MASH, that by default uses 0.8 sequence similarity cut-off but can be changed as desired. Additionally, a second round of redundancy filtering can be performed by using BiG-SCAPE. We strongly recommend using BiG-SCAPE for a more accurate redundancy filtering. For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). 
 
-BiG-MAP.family takes as input the output directories of anti- or gutSMASH. Therefore, either one of these tools has to been used to predict gene clusters before running BiG-MAP. An example of a gutSMASH output folder can been observed in the [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder (not meant for running purposes!).
+
+BiG-MAP.family takes as input the output directories of any anti- or gutSMASH run. Given a set of genomes, gutSMASH/anitSMASH can predict multiple gene clusters, thus the output folders containig the predicted gene clusters for each genome are the ones used as input for this module and need to be run beforehand. An example of a gutSMASH output folder can been found in the [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder (not meant for running purposes!). Check the command below to see how to use BiG-SCAPE within BiG-MAP:
 
 General usage is:
 #+BEGIN_EXAMPLE
@@ -101,8 +100,6 @@ conda activate BiG-MAP_process
 python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
-
-We strongly recommend using BiG-SCAPE to group the gene clusters into Gene Cluster Families (GCFs). For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). Check the command below to see how to use BiG-SCAPE within BiG-MAP:
 
 #+BEGIN_EXAMPLE
 python3 BiG-MAP.family.py -D /usr001/gutSMASH-output/ -b /usr001/BiG-SCAPE_location/ -pf /usr001/pfam_files_location/ -O /usr001/results_family/
@@ -127,7 +124,7 @@ From the command above, the gutSMASH-output folder should contain the results of
 *-p*:   Number of used parallel threads in the BiG-SCAPE filtering step. Default = 6
 
 ** 3) BiG-MAP.map.py
-This module is designed to align the WGS (paired or unpaired) reads to the reference representatives in each GCF and HGF using /bowtie2/. The following will be computed: RPKM, coverage, core coverage. The coverage is calculated using /Bedtools/, and the read count values using /Samtools/. The general usage is:
+This module is designed to align the WGS (paired or unpaired) reads to the reference representatives of each GCF and HGF using /bowtie2/. The following will be computed: RPKM, coverage, core coverage. The coverage is calculated using /Bedtools/, and the read count values using /Samtools/. The general usage is:
 
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
@@ -135,7 +132,7 @@ python3 BiG-MAP.map.py -h
 python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-R [reference] -F [family] | -P [pickled file]} -O [outdir] -b [metadata] [Options*]
 #+END_EXAMPLE
 
-To map the 10 samples from Schirmer et al. (2018) to the GCF reference representatives, and correct for the BiG-SCAPE GCFs, run:
+To map the 8 samples from Schirmer et al. (2018) to the GCF reference representatives, and correct for the BiG-SCAPE GCFs, run:
 
 *NOTE*: It is important for downstream analysis to also use the /-b/ flag. 
 #+BEGIN_EXAMPLE
