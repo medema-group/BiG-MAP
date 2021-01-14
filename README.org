@@ -119,7 +119,7 @@ BiG-MAP.GCs.json = Dictionary that contains the GCFs
 BiG-MAP.GCF.json = Dictionary that contains the BiG-SCAPE GCFs
 #+END_EXAMPLE
 
-From the command above, the gutSMASH-output folder should contain the results of several gutSMASH/antiSMASH runs and the flags used indicate:
+In general, the anti- or gutSMASH-output folder should contain the results of at least several runs. Optional flags to run this module include:
 
 *-tg*:  Fraction between 0 and 1; the similarity threshold that determines when the protein sequences of the gene clusters can be considered similar. Default = 0.8.
 
