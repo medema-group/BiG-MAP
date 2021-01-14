@@ -8,7 +8,7 @@ Meta'omics abundance Profiler (BiG-MAP). Metabolic Gene Clusters
 (MGCs) are responsible of the synthesis of small molecules, that 
 are known to have a major impact on the host. To evaluate their 
 contribution to a given host phenotype, it is important to assess 
-the MGC abundance and expression profile in a given dataset.Thus, 
+the MGC abundance and expression profile in a given dataset. Thus, 
 we have built BiG-MAP, a bioinformatic tool to profile abundance 
 and expression levels of gene clusters across metagenomic and 
 metatranscriptomic data and evaluate their differential abundance 
@@ -92,9 +92,14 @@ python3 BiG-MAP.download.py -A Acc_list.txt -O /usr001/fastq/schirmer/
 The main purpose of this module is to group gene clusters into GCFs using sequence similarity. The first redundancy filtering step is performed by MASH, that by default uses 0.8 sequence similarity cut-off but can be changed as desired. Additionally, a second round of redundancy filtering can be performed by using BiG-SCAPE. We strongly recommend using BiG-SCAPE for a more accurate redundancy filtering. For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). 
 
 
-BiG-MAP.family takes as input the output directories of any anti- or gutSMASH run. Given a set of genomes, gutSMASH/anitSMASH can predict multiple gene clusters, thus the output folders containig the predicted gene clusters for each genome are the ones used as input for this module. Please, take into account that it needs to be run beforehand. As an example, you can find a gutSMASH output folder in here: [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder (not meant for running purposes!). 
+BiG-MAP.family takes as input the output directories of any anti- or gutSMASH run. Given a set of genomes, gutSMASH/antiSMASH can predict multiple gene clusters, thus the output folders containing the predicted gene clusters for each genome are the ones used as input for this module. Please, take into account that it needs to be run beforehand. To follow this tutorial without previously running anti- or gutSMASH, you can find 10 exemplary gutSMASH output folders in here: [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder. 
 
-Check the command below to see how to use BiG-SCAPE within BiG-MAP:
+To make use of the tutorial gutSMASH folders, first extract the files using: 
+#+BEGIN_EXAMPLE
+tar -xf BiG-MAP_tutorial_genomes.tar.gz
+#+END_EXAMPLE
+
+The general usage of BiG-MAP.family is:
 
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
@@ -102,8 +107,10 @@ python3 BiG-MAP.family.py -h
 python3 BiG-MAP.family.py [Options]* -D [input dir(s)] -O [output dir]
 #+END_EXAMPLE
 
+Check the command below to see how to run this module with the tutorial samples and BiG-SCAPE:
+
 #+BEGIN_EXAMPLE
-python3 BiG-MAP.family.py -D /usr001/gutSMASH-output/ -b /usr001/BiG-SCAPE_location/ -pf /usr001/pfam_files_location/ -O /usr001/results_family/
+python3 BiG-MAP.family.py -D /usr001/BiG-MAP_tutorial_genomes/ -b /usr001/BiG-SCAPE_location/ -pf /usr001/pfam_files_location/ -O /usr001/results_family/
 
 This yields:
 BiG-MAP.GCF.bed = Bedfile to extract core regions in BiG-MAP.map.py
@@ -140,7 +147,7 @@ To map the 8 samples from Schirmer et al. (2018) to the GCF reference representa
 python3 BiG-MAP.map.py -b /usr001/results/schirmer_metadata.txt -I1 /usr001/fastq/schirmer/*pass_1* -I2 /usr001/fastq/schirmer/*pass_2* -O /usr001/results_mapping/ -F /usr001/results_family/
 
 the schirmer_metadata.txt is set up as follows (tab-delimited):
-#run.ID host.ID	SampleType	DiseaseStatus
+#run.ID  host.ID	SampleType	DiseaseStatus
 SRR5947837	M2026C2_MGX	METAGENOMIC	UC
 SRR5947861	M2026C3_MGX	METAGENOMIC	UC
 SRR5947824	M2026C4_MGX	METAGENOMIC	UC
