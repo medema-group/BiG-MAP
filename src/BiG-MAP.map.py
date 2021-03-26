@@ -363,10 +363,11 @@ def correct_family_size(cluster, key, number_reads, GCF_dict):
     for name in GCF_dict[key]:
         fam_size.append(float(name.split("--")[-1].split("=")[-1]))
         total_fam_size = int(sum(fam_size))
+        bg_fam_size = len(fam_size)
         if cluster in GCF_dict[key]:
             read_total += int(number_reads)
     adj_key = name.split("NR=")[0]
-    adj_key = f"{adj_key}NR={total_fam_size}"
+    adj_key = f"{adj_key}NR={total_fam_size}--BG={bg_fam_size}"
 
     return(adj_key, read_total)
 
@@ -422,9 +423,6 @@ def calculateTPM(countsfile):
             if "*" not in line:
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
-                if "NR" in cluster:
-                    NR = float(cluster.split("--")[-1].split("=")[-1])
-                    nreads = float(nreads) / NR
                 try:
                     rate = float(nreads) / float(length)
                     rates[cluster] = rate
@@ -453,29 +451,35 @@ def calculateRPKM(countsfile):
     """
     sum_reads = 0
     read_counts = {}
+    read_counts_avg ={}
     cluster_lengths = {}
     with open(countsfile, "r") as f:
         for line in f:
             if "*" not in line:
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
-                if "NR" in cluster:
-                    NR = float(cluster.split("--")[-1].split("=")[-1])
-                    nreads = float(nreads) / NR
+                nreads = float(nreads)
+                if "BG" in cluster:
                     read_counts[cluster] = nreads
+                    NR = int(cluster.split("--")[-1].split("=")[-1])
+                    nreads = nreads / NR
+                    read_counts_avg[cluster] = nreads
                 else:
-                    read_counts[cluster] = float(nreads)
+                    read_counts[cluster] = nreads
+                    read_counts_avg[cluster] = nreads
                 cluster_lengths[cluster] = float(length)
-                sum_reads += float(nreads)
+                sum_reads += nreads
 
     RPKM = {}
+    RPKM_avg = {}
     for key in read_counts:
         try:
             RPKM[key] = read_counts[key] / (sum_reads * cluster_lengths[key]) * 1000000000
-
+            RPKM_avg[key] = read_counts_avg[key] / (sum_reads * cluster_lengths[key]) * 1000000000
         except(ZeroDivisionError):
             RPKM[key] = 0
-    return (RPKM)
+            RPKM_avg[key] = 0
+    return (RPKM, RPKM_avg)
 
 def parserawcounts(countsfile):
     """parses the raw counts from a countsfile
@@ -760,7 +764,7 @@ def export2biom(outdir, core="",):
     biom_file = the created biom-format file (without metadata)
     """
     biom_file = os.path.join(outdir, "BiG-MAP.map" + core + ".biom")
-    inp_counts = os.path.join(outdir, "BiG-MAP.map.results." + core + 'RPKM_filtered.txt')
+    inp_counts = os.path.join(outdir, "BiG-MAP.map.results." + core + 'RPKM_summed.txt')
     cmd_export2biom = f"biom convert -i {inp_counts} -o {biom_file} --table-type='Pathway table' --to-json"
     res_export = subprocess.check_output(cmd_export2biom, shell=True)
     return (biom_file)
@@ -918,7 +922,7 @@ def main():
             countsfile = correct_counts(countsfile, BGCF)
 
         TPM = calculateTPM(countsfile)
-        RPKM = calculateRPKM(countsfile)
+        RPKM, RPKM_avg = calculateRPKM(countsfile)
         raw = parserawcounts(countsfile)
 
         ##############################
@@ -933,11 +937,13 @@ def main():
             # GCF and HGF consideration:
             TPM = familycorrect(TPM, BGCF)
             RPKM = familycorrect(RPKM, BGCF)
+            RPKM_avg = familycorrect(RPKM_avg, BGCF)
             raw = familycorrect(raw, BGCF)
             coverage = familycorrect(coverage, BGCF)
         else:
             TPM = familycorrect(TPM, family)
             RPKM = familycorrect(RPKM, family)
+            RPKM_avg = familycorrect(RPKM_avg, family)
             raw = familycorrect(raw, family)
             coverage = familycorrect(coverage, family)
 
@@ -947,6 +953,7 @@ def main():
         sample = Path(b).stem
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
+        results[f"{sample}.AVG"] = [RPKM_avg[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
         results[f"{sample}.cov"] = [coverage[k] for k in RPKM.keys()]
         results["gene_clusters"] = list(RPKM.keys())  # add gene clusters as well
@@ -962,7 +969,7 @@ def main():
                 countsfile = correct_counts(countsfile, BGCF)
 
             core_TPM = calculateTPM(countsfile)
-            core_RPKM = calculateRPKM(countsfile)
+            core_RPKM, core_RPKM_avg = calculateRPKM(countsfile)
             core_raw = parserawcounts(countsfile)
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
@@ -970,21 +977,25 @@ def main():
             core_coverage = computecorecoverage(core_bedgraph, bed_file)
             if not BGCF == "":
                 core_coverage = correct_coverage(core_coverage, countsfile)
+
             # GCF and HGF consideration:
             if not BGCF == "":
                 core_TPM = familycorrect(core_TPM, BGCF)
                 core_RPKM = familycorrect(core_RPKM, BGCF)
+                core_RPKM_avg = familycorrect(core_RPKM_avg, BGCF)
                 core_raw = familycorrect(core_raw, BGCF)
                 core_coverage = familycorrect(core_coverage, BGCF)
             else:
                 core_TPM = familycorrect(core_TPM, family)
                 core_RPKM = familycorrect(core_RPKM, family)
+                core_RPKM_avg = familycorrect(core_RPKM_avg, BGCF)
                 core_raw = familycorrect(core_raw, family)
                 core_coverage = familycorrect(core_coverage, family)
 
             # core_coverage = computetotalcoverage(core_bedgraph)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
+            results[f"{sample}.coreAVG"] = [core_RPKM_avg[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRAW"] = [core_raw[k] for k in core_RPKM.keys()]
             results[f"{sample}.corecov"] = [core_coverage[k] if "GC_DNA--" in k else 0 for k in core_RPKM.keys()]
 
@@ -994,20 +1005,33 @@ def main():
     # writing all the results to csv
     df = pd.DataFrame(results)
     df.set_index("gene_clusters", inplace=True)
+
     df.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.ALL.csv"))
 
     # writing RPKM (core) filtered results
     headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
     df_RPKM = df[headers_RPKM]
     df_RPKM.columns = [h[:-5] for h in headers_RPKM]
-    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_filtered.csv"))
-    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_filtered.txt"), sep="\t")
+    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_summed.csv"))
+    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_summed.txt"), sep="\t")
+
+    headers_RPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".AVG" in rpkmkey]
+    df_RPKMavg = df[headers_RPKM_avg]
+    df_RPKMavg.columns = [h[:-5] for h in headers_RPKM_avg]
+    df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.csv"))
+    df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.txt"), sep="\t")
 
     headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
     df_coreRPKM = df[headers_coreRPKM]
     df_coreRPKM.columns = [h[:-9] for h in headers_coreRPKM]
-    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_filtered.csv"))
-    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_filtered.txt"), sep="\t")
+    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_summed.csv"))
+    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_summed.txt"), sep="\t")
+
+    headers_coreRPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".coreAVG" in rpkmkey]
+    df_coreRPKMavg = df[headers_coreRPKM_avg]
+    df_coreRPKMavg.columns = [h[:-9] for h in headers_coreRPKM_avg]
+    df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_average.csv"))
+    df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_average.txt"), sep="\t")
 
     # Writing row coverages:
     headers_cov = [corekey for corekey in results.keys() if ".corecov" in corekey]

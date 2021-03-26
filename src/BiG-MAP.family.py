@@ -74,6 +74,7 @@ Options:
     -k   Specify the k-mer size used by Mash. It is recommended to read the
          Mash instructions when changing this parameter. Default = 16
     -b   Name of the path to bigscape.py. Default = False
+    -pf  Path to pfam file locations. Default = False
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
     --metatranscriptomes If the reads to analyze are from metatranscriptomes,

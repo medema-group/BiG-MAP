@@ -139,7 +139,9 @@ def get_sample_type(sample_type, json_file, metagroup):
     list_samples = []
 
     for sample in json_file["columns"]:
-        if sample_type == (sample["metadata"]["SampleType"]).upper():
+        if sample["metadata"] == {}:
+            pass
+        elif sample_type == (sample["metadata"]["SampleType"]).upper():
             list_samples.append(sample["id"])
             index = json_file["columns"].index(sample)
             index_samples[index] = sample
@@ -476,7 +478,7 @@ def sort_housekeeping(gc_df, hg_df, cov):
 # FITZIG MODEL
 ######################################################################
 
-def run_fit_zig(biomfile, groups, data_group, biom_dict):
+def run_fit_zig(biomfile, groups, data_group, biom_dict, outdir):
     """ run metagenomeSeq fitZIG model using an R function and Rpy2
     --------
     biomfile
@@ -496,8 +498,29 @@ def run_fit_zig(biomfile, groups, data_group, biom_dict):
     utils = importr('utils')
     utils = rpackages.importr('utils')
     packnames = ('biomformat', 'metagenomeSeq')
+    dict_length = 0
     for sample in biom_dict["columns"]:
-        data_type = sample["metadata"]["SampleType"]
+        if sample["metadata"] == {}:
+            mock_dict = {}
+            out_list =[]
+            new_biom_file = os.path.join(outdir + "/BiG-MAP.adj.biom")
+            with open (biomfile, "r") as biom:
+                for line in biom:
+                    if "{}" in line:
+                        for i in range(dict_length):
+                            mock_dict[str(i)] = "NA"
+                            mock_dict_out = json.dumps(mock_dict)
+                        new_line = f'            "metadata": {mock_dict_out}\n'
+                        out_list.append(new_line)
+                    else:
+                        out_list.append(line)
+            with open (new_biom_file, "w") as nw_biom:
+                for line in out_list:
+                    nw_biom.write(line)
+            pass
+        else:
+            dict_length = len(sample["metadata"])
+            data_type = sample["metadata"]["SampleType"]
 
     names_to_install = [x for x in packnames if not rpackages.isinstalled(x)]
     if len(names_to_install) > 0:
@@ -532,11 +555,20 @@ def run_fit_zig(biomfile, groups, data_group, biom_dict):
          ''')
     # call the R function
     r_pkg = STAP(r_command, "r_pkg")
-    try:
-        fitzig_out = r_pkg.run_fitZIG(biomfile, groups[0], groups[1], data_type, data_group)
-    except subprocess.CalledProcessError:
-        print("There has been an error in the R-script, please check the input (meta)data")
-        sys.exit()
+    biom_check = os.path.join(outdir + "/BiG-MAP.adj.biom")
+    if os.path.exists(biom_check):
+        try:
+            fitzig_out = r_pkg.run_fitZIG(biom_check, groups[0], groups[1], data_type, data_group)
+            os.remove(os.path.join(outdir + "/BiG-MAP.adj.biom"))
+        except subprocess.CalledProcessError:
+            print("There has been an error in the R-script, please check the input (meta)data")
+            sys.exit()
+    else:
+        try:
+            fitzig_out = r_pkg.run_fitZIG(biomfile, groups[0], groups[1], data_type, data_group)
+        except subprocess.CalledProcessError:
+            print("There has been an error in the R-script, please check the input (meta)data")
+            sys.exit()
     return fitzig_out
 
 ######################################################################
@@ -1098,7 +1130,7 @@ def main():
 
         print("__________Fit-ZIG model____________________")
         # run the fitzig model in R
-        fitzig_results = run_fit_zig(args.biom_file, args.groups, args.metagroup, biom_dict)
+        fitzig_results = run_fit_zig(args.biom_file, args.groups, args.metagroup, biom_dict, args.outdir)
         # parse the output and get the significant GCs
         sign_fit, meta_types = parse_results(fitzig_results, norm_df, args.groups, metadata, \
         args.alpha_fitzig, "fitzig")
