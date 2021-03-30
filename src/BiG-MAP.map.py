@@ -497,11 +497,7 @@ def parserawcounts(countsfile):
             if "*" not in line:
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
-                if "NR" in cluster:
-                    NR = float(cluster.split("--")[-1].split("=")[-1])
-                    raw_counts[cluster] = float(nreads) / NR
-                else:
-                    raw_counts[cluster] = float(nreads)
+                raw_counts[cluster] = float(nreads)
     return (raw_counts)
 
 ######################################################################
