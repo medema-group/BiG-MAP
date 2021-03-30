@@ -778,6 +778,12 @@ def decoratebiom(biom_file, outdir, metadata, core=""):
         metadata_f = os.path.join(outdir, 'BiG-MAP.map.core.coverage.txt')
         cmd_feature = f"biom add-metadata --observation-metadata-fp {metadata_f} -i {in_biom} -o {out_biom} --output-as-json"
         res_feature = subprocess.check_output(cmd_feature, shell=True)
+    else:
+        in_biom = '.'.join(biom_file.split('.')[0:-1]) + '.meta.biom'
+        out_biom = '.'.join(biom_file.split('.')[0:-1]) + '.meta.biom'
+        metadata_f = os.path.join(outdir, 'BiG-MAP.map.coverage.txt')
+        cmd_feature = f"biom add-metadata --observation-metadata-fp {metadata_f} -i {in_biom} -o {out_biom} --output-as-json"
+        res_feature = subprocess.check_output(cmd_feature, shell=True)
     return (out_biom)
 
 
@@ -1013,7 +1019,7 @@ def main():
 
     headers_RPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".AVG" in rpkmkey]
     df_RPKMavg = df[headers_RPKM_avg]
-    df_RPKMavg.columns = [h[:-5] for h in headers_RPKM_avg]
+    df_RPKMavg.columns = [h[:-4] for h in headers_RPKM_avg]
     df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.csv"))
     df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.txt"), sep="\t")
 
@@ -1030,18 +1036,24 @@ def main():
     df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_average.txt"), sep="\t")
 
     # Writing row coverages:
-    headers_cov = [corekey for corekey in results.keys() if ".corecov" in corekey]
+    headers_cov_core = [corekey for corekey in results.keys() if ".corecov" in corekey]
+    df_cov_core = df[headers_cov_core]
+    df_cov_core.columns = [h[:-8] for h in headers_cov_core if ".corecov" in h]
+    df_cov_core.index.names = ['#gene_clusters']
+    df_cov_core.to_csv(os.path.join(args.outdir, "BiG-MAP.map.core.coverage.txt"), sep="\t")
+
+    headers_cov = [covkey for covkey in results.keys() if ".cov" in covkey]
     df_cov = df[headers_cov]
-    df_cov.columns = [h[:-8] for h in headers_cov if ".corecov" in h]
+    df_cov.columns = [h[:-4] for h in headers_cov if ".cov" in h]
     df_cov.index.names = ['#gene_clusters']
-    df_cov.to_csv(os.path.join(args.outdir, "BiG-MAP.map.core.coverage.txt"), sep="\t")
+    df_cov.to_csv(os.path.join(args.outdir, "BiG-MAP.map.coverage.txt"), sep="\t")
 
     # writing the results to biom format:
     print('Adding metadeta to biom and converting files into json format')
     if args.biom_output:
         if bed_file:
             biomfile = export2biom(args.outdir)
-            biom_out1 = decoratebiom(biomfile, args.outdir, args.biom_output, "core")
+            biom_out1 = decoratebiom(biomfile, args.outdir, args.biom_output)
             decode_biom(biom_out1)
                 
             biomfile2 = export2biom(args.outdir, "core")
