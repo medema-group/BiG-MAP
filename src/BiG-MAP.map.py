@@ -75,6 +75,8 @@ Options:
           END-TO-END mode: very-fast, fast, sensitive, very-sensitive
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
           very-sensitive-local. Default = fast
+    -a    Ouput read average values across GCFs instead of summed counts:
+          True/False. Default = False.
     -th   Number of used threads in the bowtie2 mapping step. Default = 6
 ______________________________________________________________________
 ''')
@@ -87,6 +89,8 @@ ______________________________________________________________________
     parser.add_argument( "-b", "--biom_output",
                          help=argparse.SUPPRESS, type=str, required = False)
     parser.add_argument( "-f", "--fasta", help=argparse.SUPPRESS,
+                         type=str, required = False, default=False)
+    parser.add_argument( "-a", "--average", help=argparse.SUPPRESS,
                          type=str, required = False, default=False)
     parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
                          type=str, required = False, default="fast")
@@ -438,7 +442,7 @@ def calculateTPM(countsfile):
             TPM[key] = 0
     return (TPM)
 
-def calculateRPKM(countsfile):
+def calculateRPKM(countsfile, avg):
     """Calculates the RPKM values for a sample
     RPKM = read_counts/(cluster_length * sum(read_counts)) * 10^9
     parameters
@@ -459,7 +463,7 @@ def calculateRPKM(countsfile):
                 line = line.strip()
                 cluster, length, nreads, nnoreads = line.split("\t")
                 nreads = float(nreads)
-                if "BG" in cluster:
+                if avg == "True" and "BG" in cluster:
                     read_counts[cluster] = nreads
                     NR = int(cluster.split("--")[-1].split("=")[-1])
                     nreads = nreads / NR
@@ -760,7 +764,7 @@ def export2biom(outdir, core="",):
     biom_file = the created biom-format file (without metadata)
     """
     biom_file = os.path.join(outdir, "BiG-MAP.map" + core + ".biom")
-    inp_counts = os.path.join(outdir, "BiG-MAP.map.results." + core + 'RPKM_summed.txt')
+    inp_counts = os.path.join(outdir, "BiG-MAP.map.results." + core + 'RPKM.txt')
     cmd_export2biom = f"biom convert -i {inp_counts} -o {biom_file} --table-type='Pathway table' --to-json"
     res_export = subprocess.check_output(cmd_export2biom, shell=True)
     return (biom_file)
@@ -924,7 +928,7 @@ def main():
             countsfile = correct_counts(countsfile, BGCF)
 
         TPM = calculateTPM(countsfile)
-        RPKM, RPKM_avg = calculateRPKM(countsfile)
+        RPKM, RPKM_avg = calculateRPKM(countsfile, args.average)
         raw = parserawcounts(countsfile)
 
         ##############################
@@ -955,10 +959,11 @@ def main():
         sample = Path(b).stem
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
-        results[f"{sample}.AVG"] = [RPKM_avg[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
         results[f"{sample}.cov"] = [coverage[k] for k in RPKM.keys()]
         results["gene_clusters"] = list(RPKM.keys())  # add gene clusters as well
+        if args.average == "True":
+            results[f"{sample}.AVG"] = [RPKM_avg[k] for k in RPKM.keys()]
 
         ##############################
         # Core calculation
@@ -971,7 +976,7 @@ def main():
                 countsfile = correct_counts(countsfile, BGCF)
 
             core_TPM = calculateTPM(countsfile)
-            core_RPKM, core_RPKM_avg = calculateRPKM(countsfile)
+            core_RPKM, core_RPKM_avg = calculateRPKM(countsfile, args.average)
             core_raw = parserawcounts(countsfile)
             # Coverage
             core_bedgraph = bedtoolscoverage(bedtools_gfile, args.outdir + os.sep, sortb)
@@ -997,9 +1002,10 @@ def main():
             # core_coverage = computetotalcoverage(core_bedgraph)
             results[f"{sample}.coreTPM"] = [core_TPM[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRPKM"] = [core_RPKM[k] for k in core_RPKM.keys()]
-            results[f"{sample}.coreAVG"] = [core_RPKM_avg[k] for k in core_RPKM.keys()]
             results[f"{sample}.coreRAW"] = [core_raw[k] for k in core_RPKM.keys()]
             results[f"{sample}.corecov"] = [core_coverage[k] if "GC_DNA--" in k else 0 for k in core_RPKM.keys()]
+            if args.average == "True":
+                results[f"{sample}.coreAVG"] = [core_RPKM_avg[k] for k in core_RPKM.keys()]
 
     ##############################
     # writing results file: pandas
@@ -1011,29 +1017,31 @@ def main():
     df.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.ALL.csv"))
 
     # writing RPKM (core) filtered results
-    headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
-    df_RPKM = df[headers_RPKM]
-    df_RPKM.columns = [h[:-5] for h in headers_RPKM]
-    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_summed.csv"))
-    df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_summed.txt"), sep="\t")
+    if args.average == "True":
+        headers_RPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".AVG" in rpkmkey]
+        df_RPKMavg = df[headers_RPKM_avg]
+        df_RPKMavg.columns = [h[:-4] for h in headers_RPKM_avg]
+        df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM.csv"))
+        df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM.txt"), sep="\t")
 
-    headers_RPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".AVG" in rpkmkey]
-    df_RPKMavg = df[headers_RPKM_avg]
-    df_RPKMavg.columns = [h[:-4] for h in headers_RPKM_avg]
-    df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.csv"))
-    df_RPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM_average.txt"), sep="\t")
+        headers_coreRPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".coreAVG" in rpkmkey]
+        df_coreRPKMavg = df[headers_coreRPKM_avg]
+        df_coreRPKMavg.columns = [h[:-8] for h in headers_coreRPKM_avg]
+        df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.csv"))
+        df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.txt"), sep="\t")
+    else:
+        headers_RPKM = [rpkmkey for rpkmkey in results.keys() if ".RPKM" in rpkmkey]
+        df_RPKM = df[headers_RPKM]
+        df_RPKM.columns = [h[:-5] for h in headers_RPKM]
+        df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM.csv"))
+        df_RPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.RPKM.txt"), sep="\t")
 
-    headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
-    df_coreRPKM = df[headers_coreRPKM]
-    df_coreRPKM.columns = [h[:-9] for h in headers_coreRPKM]
-    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_summed.csv"))
-    df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_summed.txt"), sep="\t")
+        headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
+        df_coreRPKM = df[headers_coreRPKM]
+        df_coreRPKM.columns = [h[:-8] for h in headers_coreRPKM]
+        df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.csv"))
+        df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.txt"), sep="\t")
 
-    headers_coreRPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".coreAVG" in rpkmkey]
-    df_coreRPKMavg = df[headers_coreRPKM_avg]
-    df_coreRPKMavg.columns = [h[:-9] for h in headers_coreRPKM_avg]
-    df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_average.csv"))
-    df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM_average.txt"), sep="\t")
 
     # Writing row coverages:
     headers_cov_core = [corekey for corekey in results.keys() if ".corecov" in corekey]
