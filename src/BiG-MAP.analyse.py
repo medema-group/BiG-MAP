@@ -1166,7 +1166,7 @@ def main():
         movetodir(args.outdir + os.sep, "tsv-results", ".tsv")
 
     if args.compare and not args.groups:
-        print("Please profide the group information")
+        print("Please provide the group information")
         sys.exit()
 
 if __name__ == "__main__":

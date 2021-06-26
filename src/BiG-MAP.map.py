@@ -1026,7 +1026,7 @@ def main():
 
         headers_coreRPKM_avg = [rpkmkey for rpkmkey in results.keys() if ".coreAVG" in rpkmkey]
         df_coreRPKMavg = df[headers_coreRPKM_avg]
-        df_coreRPKMavg.columns = [h[:-8] for h in headers_coreRPKM_avg]
+        df_coreRPKMavg.columns = [h[:-9] for h in headers_coreRPKM_avg]
         df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.csv"))
         df_coreRPKMavg.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.txt"), sep="\t")
     else:
@@ -1038,7 +1038,7 @@ def main():
 
         headers_coreRPKM = [rpkmkey for rpkmkey in results.keys() if ".coreRPKM" in rpkmkey]
         df_coreRPKM = df[headers_coreRPKM]
-        df_coreRPKM.columns = [h[:-8] for h in headers_coreRPKM]
+        df_coreRPKM.columns = [h[:-9] for h in headers_coreRPKM]
         df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.csv"))
         df_coreRPKM.to_csv(os.path.join(args.outdir, "BiG-MAP.map.results.coreRPKM.txt"), sep="\t")
 

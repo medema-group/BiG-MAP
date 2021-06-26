@@ -215,7 +215,10 @@ def parsegbkcluster(infile, nflank):
         # Parsing the DNA sequence
         DNA = record.seq
         organism = record.description
-        organism = "_".join(organism.split(",")[0].split()[:-1])
+        if " " in organism:
+            organism = "_".join(organism.split(",")[0].split()[:-1])
+        else:
+            pass
         organism = organism.replace("(", "")
         organism = organism.replace(")", "")
         organism = organism.replace("/", "-")
@@ -249,10 +252,17 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     orgID = infile.split("/")[-1].split(".")[0]
     versionno = infile.split("/")[-1].split(".")[1]
     orgID = orgID[8:] if 'PROT' in orgID else orgID  # For housekeeping orgIDs
-    organism = organism[organism.index('_') + 1:]
-    file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{versionno}.{organism}.{regionno}.fasta"
+    if "_" in organism:
+        organism = organism[organism.index('_') + 1:]
+    else:
+        pass
+    if regionno == versionno:
+        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{regionno}.fasta"
+        fasta_header = f">gb|{orgID}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
+    else:
+        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{versionno}.{organism}.{regionno}.fasta"
+        fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     Outfile = os.path.join(outdir, file_name)
-    fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
     if not os.path.exists(Outfile):
         with open(Outfile, "w") as o:
@@ -865,7 +875,10 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     """
     output_dir = os.path.join(outdir, "bigscape_output")
     gbk_files = os.path.join(outdir, "gbk_files")
-    bigscape_exec = os.path.join(path_to_bigscape, 'bigscape.py')
+    if "bigscape.py" in path_to_bigscape:
+        bigscape_exec = path_to_bigscape
+    else:
+        bigscape_exec = os.path.join(path_to_bigscape, 'bigscape.py')
     try:
         cmd_bigscape = f"python3 {bigscape_exec} -i {gbk_files} -o {output_dir} -c {cores} \
         --pfam_dir {pfamfiles} --cutoffs {cut_off} --clans-off --hybrids-off --mibig"
