@@ -110,7 +110,7 @@ ______________________________________________________________________
 ######################################################################
 # Functions for extracting the gene clusters from anti/gutSMASH outputs
 ######################################################################
-def retrieveclusterfiles(indir):
+def retrieveclusterfiles(indir, outdir):
     """Retrieves the .gbk files from the input directory including their paths.
     parameters
     ----------
@@ -119,10 +119,11 @@ def retrieveclusterfiles(indir):
     returns
     ----------
     """
+    genbank_files = os.path.join(outdir, "gbk_files")
     try:
         for dirpath, dirnames, files in os.walk(indir):
             for f in files:
-                if f.endswith(".gbk") and "region" in f:
+                if f.endswith(".gbk") and "region" in f and dirpath != genbank_files:
                     yield (os.path.join(dirpath, f))
     except:
         pass
@@ -1040,7 +1041,7 @@ def main():
     GC_DNA_files = []  # will be used as Mash input
     absolute_locs = {}  # VALIDATION
     for d in args.indir:
-        for f in retrieveclusterfiles(d):
+        for f in retrieveclusterfiles(d, args.outdir):
             # Parsing each .gbk file
             DNAseq, AAseq, GC, organism, core_locs, abs_locs = parsegbkcluster(f, args.flank_genes)
             # writing the full gene clusters to .fasta for MASH
@@ -1113,7 +1114,7 @@ concerning the input files of this module.")
             list_gbkfiles = list_representatives(fastadict)
             print("________Preparing BiG-SCAPE input__________")
             for files in args.indir:
-                for gbk_file in retrieveclusterfiles(files):
+                for gbk_file in retrieveclusterfiles(files, args.outdir):
                     movegbk(args.outdir, gbk_file, list_gbkfiles)
 
             print("__________Running BiG-SCAPE________________")
