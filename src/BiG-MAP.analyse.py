@@ -139,13 +139,18 @@ def get_sample_type(sample_type, json_file, metagroup):
     list_samples = []
 
     for sample in json_file["columns"]:
-        if sample["metadata"] == {}:
-            pass
-        elif sample_type == (sample["metadata"]["SampleType"]).upper():
-            list_samples.append(sample["id"])
-            index = json_file["columns"].index(sample)
-            index_samples[index] = sample
-            metadata[sample["id"]] = sample["metadata"][metagroup]
+        if type(sample["metadata"]) == type(None):
+            print("The metadata in the BIOM file is missing. \
+Please check the input metadata and filenames for BiG-MAP.map and the resulting BIOM file.")
+            sys.exit()
+        else:
+            if sample["metadata"] == {}:
+                pass
+            elif sample_type == (sample["metadata"]["SampleType"]).upper():
+                list_samples.append(sample["id"])
+                index = json_file["columns"].index(sample)
+                index_samples[index] = sample
+                metadata[sample["id"]] = sample["metadata"][metagroup]
     return(index_samples, list_samples, metadata)
 
 def filter_rows(json_file, sample_index):

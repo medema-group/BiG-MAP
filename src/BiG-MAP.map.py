@@ -28,6 +28,7 @@ import shutil
 import re
 import textwrap
 import pickle
+import ntpath
 
 # Functions:
 def get_arguments():
@@ -146,7 +147,8 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     writes the mapping percentage to bowtie2_log.txt
     """
     stem = Path(mate1).stem
-    sample = stem.split("_")[0]
+    sample = '.f'.join(ntpath.basename(mate1).split(".f")[:-1])
+    sample = sample if mate1 == mate2 else sample.split("_")[0]
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
@@ -956,7 +958,8 @@ def main():
         ##############################
         # saving results in one dictionary
         ##############################
-        sample = Path(b).stem
+        sample = '.b'.join(ntpath.basename(b).split(".b")[:-1])
+        sample = sample if args.U_fastq else sample.split("_")[0]
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]

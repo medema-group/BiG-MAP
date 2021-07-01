@@ -171,7 +171,7 @@ def parsegbkcluster(infile, nflank):
     CDS_index = []
     core_index = []
     core_relative_locs = []
-    absolute_locs = []
+    #absolute_locs = []
     gbkcontents = SeqIO.parse(infile, "genbank")
     for record in gbkcontents:
         for feature in record.features:
@@ -191,12 +191,6 @@ def parsegbkcluster(infile, nflank):
                     if kind == "biosynthetic":
                         core_index.append(feature_count)
             feature_count += 1
-        # VALIDATION
-        ##############################
-        absolute_loc_start = record.annotations["structured_comment"]["antiSMASH-Data"]["Orig. start"]
-        absolute_loc_end = record.annotations["structured_comment"]["antiSMASH-Data"]["Orig. end"]
-        absolute_locs = [absolute_loc_start, absolute_loc_end]
-        ##############################
 
         if CDS_index.index(min(core_index)) - nflank < 0 or \
         CDS_index.index(max(core_index)) + nflank + 1 > len(CDS_index):
@@ -224,7 +218,7 @@ def parsegbkcluster(infile, nflank):
         organism = organism.replace(")", "")
         organism = organism.replace("/", "-")
         organism = organism.replace('"', "")
-    return (DNA, "".join(proteins), ":".join(GCs), organism, core_relative_locs, absolute_locs)
+    return (DNA, "".join(proteins), ":".join(GCs), organism, core_relative_locs)
 
 
 def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
@@ -1039,11 +1033,11 @@ def main():
     genomedict = {}  # will be used to extract housekeeping genes
     GC_prot_files = []  # will be used as Mash input
     GC_DNA_files = []  # will be used as Mash input
-    absolute_locs = {}  # VALIDATION
+
     for d in args.indir:
         for f in retrieveclusterfiles(d, args.outdir):
             # Parsing each .gbk file
-            DNAseq, AAseq, GC, organism, core_locs, abs_locs = parsegbkcluster(f, args.flank_genes)
+            DNAseq, AAseq, GC, organism, core_locs = parsegbkcluster(f, args.flank_genes)
             # writing the full gene clusters to .fasta for MASH
             prot_file, orgID, fasta_header = writefasta(AAseq, "GC_PROT", GC, organism, f, args.outdir)
             dna_file, orgID, fasta_header_DNA = writefasta(DNAseq, "GC_DNA", GC, organism, f, args.outdir)
@@ -1054,10 +1048,6 @@ def main():
             genomedict[orgID] = genomegbk
             # remembering the enzymatic genes locations in dictionary
             GC_enzyme_locs[fasta_header_DNA] = core_locs
-            # Remembring the absolute cluster locations for VALIDATION:
-            if not orgID in absolute_locs:
-                absolute_locs[orgID] = []
-            absolute_locs[orgID].append({fasta_header_DNA: abs_locs})
 
     ################################
     # Mash: similarity
@@ -1096,15 +1086,13 @@ concerning the input files of this module.")
         ###############################
 
         # Writing results to outdir
-        #writejson(GCFs_ALL, args.outdir, "BiG-MAP.GCF_HGF")
         writejson(fastadict, args.outdir, "BiG-MAP.GCs")
         writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
         fasta_file = writeGCFfasta(GCFs, args.outdir, "BiG-MAP.GCF.fna")
 
-        # Remembering the enzymatic gene locations
+        # # Remembering the enzymatic gene locations
         GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict)
         bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF.bed"))
-        writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
 
         ###################################
         # Run second redundancy filtering
@@ -1152,13 +1140,11 @@ concerning the input files of this module.")
         processed = []
         HG_prot_files = []
         HG_DNA_files = []
-        absolute_locs["hgenes"] = []  # VALIDATION
         for fname in GCFs.keys():
-            orgID = fname.split("/")[-1].split(".")[0][8:]  # was [5:] <-- the last one
-            organism = ".".join(fname.split("/")[-1].split(".region")[0].split(".")[1:])
+            orgID = fname.split("/")[-1].split(".")[0][8:]
 
             # find housekeeping genes for org using HMMer
-            if organism not in processed:
+            if orgID not in processed:
                 seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
                 hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
                 genelocs = parsehmmoutput(hmmresult)
@@ -1174,9 +1160,7 @@ concerning the input files of this module.")
 
                     # Remembering the locations
                     GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
-                    absolute_locs["hgenes"].append({housekeepingheader: abs_hloc})
-                    organism_name = organism[organism.index(".") + 1:]
-                print(f"__________DONE: {organism_name}")
+                print(f"__________DONE: {orgID}")
 
                 # Convert genome.gbk --> genome.fasta and store in outdir
                 if args.genomefiles:
@@ -1193,10 +1177,9 @@ concerning the input files of this module.")
         writejson(distance_matrix, args.outdir, "BiG-MAP.dist_GC")
         fasta_file = writeGCFfasta(GCFs, args.outdir, "BiG-MAP.GCF_HGF.fna")
 
-        # Remembering the enzymatic gene locations
+        # # Remembering the enzymatic gene locations
         GCF_enzyme_locs = applyfiltering(GC_enzyme_locs, fastadict_ALL)
         bed_file = locs2bedfile(GCF_enzyme_locs, os.path.join(args.outdir, "BiG-MAP.GCF_HGF.bed"))
-        writejson(absolute_locs, args.outdir, "absolute_cluster_locs")  # VALIDATION
 
         ###################################
         # Run second redundancy filtering
@@ -1206,7 +1189,7 @@ concerning the input files of this module.")
             list_gbkfiles = list_representatives(fastadict_ALL)
             print("________Preparing BiG-SCAPE input__________")
             for files in args.indir:
-                for gbk_file in retrieveclusterfiles(files):
+                for gbk_file in retrieveclusterfiles(files, args.outdir):
                     movegbk(args.outdir, gbk_file, list_gbkfiles)
             print("__________Running BiG-SCAPE________________")
             run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
