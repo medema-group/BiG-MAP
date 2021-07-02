@@ -902,6 +902,27 @@ def main():
         print("ERROR: -R/-F and -P are mutually exclusive")
         sys.exit()
 
+    if args.biom_output:
+        file_names = []
+        fastq_file_names = []
+        with open (args.biom_output, "r") as metadata:
+            for line in metadata:
+                file_names.append(line.split("\t")[0])
+        if args.fastq1:
+            for fastq_file in args.fastq1:
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1])
+                fastq_file_names.append(sample)
+        elif args.U_fastq:
+            for fastq_file in args.U_fastq:
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1]).split("_")[0]
+                fastq_file_names.append(sample)
+        if (set(file_names) & set(fastq_file_names)):
+            pass
+        else:
+            print("The file names are not overlapping with the names in the metadata file. \
+Please provide matching file names.")
+            sys.exit()
+
     try:
         os.mkdir(args.outdir)
     except:

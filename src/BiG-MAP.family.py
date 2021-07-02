@@ -34,6 +34,7 @@ import pickle
 from subprocess import Popen, PIPE
 import shutil
 from glob import glob
+import ntpath
 
 def get_arguments():
     """Parsing the arguments"""
@@ -245,6 +246,7 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     """
     regionno = infile.split("/")[-1].split(".")[-2]
     orgID = infile.split("/")[-1].split(".")[0]
+    orgID = '.g'.join(ntpath.basename(infile).split(".g")[:-1])
     versionno = infile.split("/")[-1].split(".")[1]
     orgID = orgID[8:] if 'PROT' in orgID else orgID  # For housekeeping orgIDs
     if "_" in organism:
@@ -1045,7 +1047,10 @@ def main():
             GC_DNA_files.append(dna_file)
             # remembering the whole genome gbk files
             genomegbk = getgenomegbk(f)
-            genomedict[orgID] = genomegbk
+            if orgID not in genomedict.keys():
+                genomedict[orgID] = genomegbk
+            else:
+                pass
             # remembering the enzymatic genes locations in dictionary
             GC_enzyme_locs[fasta_header_DNA] = core_locs
 
@@ -1141,31 +1146,35 @@ concerning the input files of this module.")
         HG_prot_files = []
         HG_DNA_files = []
         for fname in GCFs.keys():
-            orgID = fname.split("/")[-1].split(".")[0][8:]
+            organism = '.f'.join(ntpath.basename(fname).split(".f")[:-1])[8:]
+            orgID = '.'.join([organism.split(".")[0], organism.split(".")[1], organism.split(".")[-1]])
 
             # find housekeeping genes for org using HMMer
             if orgID not in processed:
-                seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
-                hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
-                genelocs = parsehmmoutput(hmmresult)
-                for gene, loc in genelocs.items():
-                    prot_seq = getprotseqfromdb(seqdb, loc)
-                    DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
-                    f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", \
-                    gene, organism, fname, args.outdir + os.sep)
-                    f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", \
-                    gene, organism, fname, args.outdir + os.sep)
-                    HG_prot_files.append(f_prot)
-                    HG_DNA_files.append(f_DNA)
+                if not os.path.isfile(genomedict[orgID]):
+                    pass
+                else:
+                    seqdb = prepareseqdb(genomedict[orgID], args.outdir + os.sep)
+                    hmmresult = hmmsearch(seqdb, hmmfile, args.outdir + os.sep)
+                    genelocs = parsehmmoutput(hmmresult)
+                    for gene, loc in genelocs.items():
+                        prot_seq = getprotseqfromdb(seqdb, loc)
+                        DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
+                        f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", \
+                        gene, organism, fname, args.outdir + os.sep)
+                        f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", \
+                        gene, organism, fname, args.outdir + os.sep)
+                        HG_prot_files.append(f_prot)
+                        HG_DNA_files.append(f_DNA)
 
-                    # Remembering the locations
-                    GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
-                print(f"__________DONE: {orgID}")
+                        # Remembering the locations
+                        GC_enzyme_locs[housekeepingheader] = [FeatureLocation(0, len(DNA_seq))]
+                    print(f"__________DONE: {orgID}")
 
-                # Convert genome.gbk --> genome.fasta and store in outdir
-                if args.genomefiles:
-                    gbktofasta(genomedict[orgID], os.path.join(args.outdir, \
-                    organism +".fasta"), args.outdir + os.sep)
+                    # Convert genome.gbk --> genome.fasta and store in outdir
+                    if args.genomefiles:
+                        gbktofasta(genomedict[orgID], os.path.join(args.outdir, \
+                        organism +".fasta"), args.outdir + os.sep)
             processed.append(organism)
 
         for prot_file in HG_prot_files:
