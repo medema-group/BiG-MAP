@@ -1,5 +1,0 @@
-Building DAG of jobs...
-ChildIOException:
-File/directory is a child to another output:
-('/lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake', downloader)
-('/lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/output/BiG-MAP.pickle', family)
