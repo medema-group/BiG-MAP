@@ -193,7 +193,7 @@ tsv-results -> directory containing tsv files with the raw data
 * Snakemake workflow
 This Snakemake workflow allows for a more automated and streamlined running of the separated BiG-MAP modules. For more information on how to install and run the Snakemake version of BiG-MAP, check the instructions below.
 
-* Installation
+* Installation and run overview
 Install BiG-MAP dependencies using conda. Conda can be installed from
 [[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. First pull the BiG-MAP repository from github:
 
