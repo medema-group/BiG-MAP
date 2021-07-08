@@ -190,6 +190,33 @@ UCvsCD_kw.pdf & UCvsCD_kw.eps -> comparison between UC and CD using the Kruskal 
 tsv-results -> directory containing tsv files with the raw data
 #+END_EXAMPLE
 
+* Snakemake workflow
+This Snakemake workflow allows for a more automated and streamlined running of the separated BiG-MAP modules. For more information on how to install and run the Snakemake version of BiG-MAP, check the instructions below.
+
+* Installation
+Install BiG-MAP dependencies using conda. Conda can be installed from
+[[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. First pull the BiG-MAP repository from github:
+
+#+BEGIN_EXAMPLE
+~$ git clone https://github.com/medema-group/BiG-MAP.git
+#+END_EXAMPLE
+
+Install Snakemake with the following command:
+#+BEGIN_EXAMPLE
+~$ conda create -n snakemake -c conda-forge -c bioconda snakemake=6.0.2
+~$ conda activate snakemake
+#+END_EXAMPLE
+
+Next, copy the BiG-MAP_snakemake folder to the preferred output location
+#+BEGIN_EXAMPLE
+~$ cp -r BiG-MAP/BiG-MAP_snakemake/ /path/to/output/location/
+#+END_EXAMPLE
+
+Navigate to the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In this file, the locations of files and folders should be included based on the wanted BiG-MAP run settings. After adjusting the config file, use the following command to start the BiG-MAP run:
+#+BEGIN_EXAMPLE
+~$ snakemake --use-conda --cores 10
+#+END_EXAMPLE
+*NOTE*: It's recommended to use a conda-prefix location to a folder in which the BiG-MAP conda environments can be installed (--conda-prefix /path/to/snakemake/conda/envs/). Additionally, the number of cores used by BiG-MAP can be adjusted with the --cores flag.
 
 * Requirements
 ** Input data:
