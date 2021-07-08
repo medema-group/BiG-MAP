@@ -1,0 +1,37 @@
+Building DAG of jobs...
+Job counts:
+	count	jobs
+	1	all
+	1	analyse
+	1	family
+	1	mapping
+	4
+
+[Thu Jul  8 10:08:52 2021]
+rule family:
+    input: /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20
+    output: output/BiG-MAP.pickle
+    jobid: 3
+    threads: 13
+
+python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.family.py -D /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20 -O output/ -p 13 -b /mnt/scratch/pasca005/tools/BiG-SCAPE/ -pf /mnt/scratch/pasca005/tools/PfamA_DB/
+
+[Thu Jul  8 10:08:52 2021]
+rule mapping:
+    input: output/BiG-MAP.pickle
+    output: output/biom-results/BiG-MAP.mapcore.metacore.dec.biom
+    jobid: 2
+    threads: 15
+
+InputFunctionException in line 72 of /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/Snakefile:
+Error:
+  AttributeError: 'builtin_function_or_method' object has no attribute 'fastq_dir'
+Wildcards:
+
+Traceback:
+  File "/lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/Snakefile", line 64, in mapping_cmd
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 136, in run_jobs
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 145, in run
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 156, in _run
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 176, in printjob
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 162, in printjob

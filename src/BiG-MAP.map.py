@@ -910,11 +910,11 @@ def main():
                 file_names.append(line.split("\t")[0])
         if args.fastq1:
             for fastq_file in args.fastq1:
-                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1])
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1]).split("_")[0]
                 fastq_file_names.append(sample)
         elif args.U_fastq:
             for fastq_file in args.U_fastq:
-                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1]).split("_")[0]
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1])
                 fastq_file_names.append(sample)
         if (set(file_names) & set(fastq_file_names)):
             pass

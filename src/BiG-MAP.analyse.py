@@ -28,6 +28,7 @@ import numpy as np
 from scipy.stats import mstats
 from statsmodels.stats.multitest import fdrcorrection
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from rpy2.robjects.packages import importr, STAP
@@ -602,6 +603,11 @@ def kruskal_wallis(norm_df, metadata, groups):
     df = norm_df.append(row).sort_values(by=["Metadata"], axis=1)
     df = df.replace(0, float(0.0)).T
     df = df.loc[df["Metadata"].isin(groups)]
+    counts = df["Metadata"].value_counts()
+    if len(counts[counts>=3].index) != 2:
+        print("Not enough samples detected to perform a differentially \
+expression analysis. Please provide at least 3 samples for each group")
+        sys.exit()
 
     for gc_name in df.columns:
         if "GC_DNA--" in gc_name: # filter out the housekeeping genes
@@ -1022,6 +1028,7 @@ def main():
     6) Run the fit-ZIG model if requested
     """
     args = get_arguments()
+    matplotlib.use('agg')
 
     if not args.compare and not args.explore:
         print("Please use the --compare or --explore flag")

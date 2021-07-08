@@ -1,0 +1,46 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 15
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	1	analyse
+	1	downloader
+	1	family
+	1	mapping
+	5
+Select jobs to execute...
+
+[Thu Jul  8 11:19:19 2021]
+rule downloader:
+    input: /lustre/BIF/nobackup/augus011/data/acclist/test_acc.txt
+    output: output/download
+    jobid: 4
+
+python /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.download.py -A /lustre/BIF/nobackup/augus011/data/acclist/test_acc.txt -O output/download/
+
+[Thu Jul  8 11:19:19 2021]
+rule family:
+    input: /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20
+    output: output/family/BiG-MAP.pickle
+    jobid: 3
+    threads: 14
+
+python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.family.py -D /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20 -O output/family/ -p 14 -b /mnt/scratch/pasca005/tools/BiG-SCAPE/ -pf /mnt/scratch/pasca005/tools/PfamA_DB/
+Activating conda environment: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+Activating conda environment: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+ImproperOutputException in line 9 of /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/Snakefile:
+Outputs of incorrect type (directories when expecting files or vice versa). Output directories must be flagged with directory(). for rule downloader:
+output/download
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 583, in handle_job_success
+  File "/lustre/BIF/nobackup/augus011/programs/miniconda3/envs/snake_make/lib/python3.9/site-packages/snakemake/executors/__init__.py", line 252, in handle_job_success
+Removing output files of failed job downloader since they might be corrupted:
+output/download
+Skipped removing non-empty directory output/download
+[Thu Jul  8 13:06:46 2021]
+Finished job 3.
+1 of 5 steps (20%) done
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/.snakemake/log/2021-07-08T111914.627441.snakemake.log

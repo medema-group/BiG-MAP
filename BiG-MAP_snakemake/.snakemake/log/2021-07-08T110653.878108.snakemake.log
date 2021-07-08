@@ -1,0 +1,4 @@
+Building DAG of jobs...
+MissingInputException in line 5 of /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/Snakefile:
+Missing input files for rule all:
+output/tsv-results/all_RPKMs.tsv

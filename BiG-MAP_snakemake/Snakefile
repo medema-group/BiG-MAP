@@ -1,0 +1,100 @@
+configfile: "./config.yaml"
+
+script_loc = config["BiG-MAP_loc"]
+
+rule all: 
+    input:
+        "output/analyse/tsv-results/all_RPKMs.tsv"
+
+rule downloader:
+    input:
+        config["accession"]
+    output:
+        directory("output/download/") if config["file_location"] == "" else config["file_location"]
+    conda:
+        f"{script_loc}BiG-MAP_process.yml"
+    threads:
+        1
+    shell:
+        "python {script_loc}src/BiG-MAP.download.py -A {input} -O output/download/"
+
+def family_cmd(wildcards):
+    bigscape_loc = config["loc_bigscape"]
+    pfam_loc = config["loc_pfam"]
+    metatrans = config["metatranscriptomes"]
+    if bigscape_loc != "" and metatrans == "":
+        return(f"-b {bigscape_loc} -pf {pfam_loc}")
+    elif bigscape_loc != "" and metatrans != "":
+        return(f"-b {bigscape_loc} -pf {pfam_loc} --metatranscriptomes")
+    elif bigscape_loc == "" and metatrans == "":
+        return("")
+    elif bigscape_loc == "" and metatrans != "":
+        return("--metatranscriptomes")
+
+rule family:
+    input:
+        smash_data = config["loc_smash"],
+    params:
+        command_family = family_cmd
+    output:
+        config["family_output"] if config["family_output"] != "" else "output/family/BiG-MAP.pickle"
+    conda:
+        f"{script_loc}BiG-MAP_process.yml"
+    threads:
+        workflow.cores - 1
+    shell:
+        "python3 {script_loc}src/BiG-MAP.family.py -D {input.smash_data} -O output/family/ -p {threads} {params.command_family}"
+
+def mapping_cmd(wildcards):
+    metadata = config["metadata_file"]
+    fwd_file = config["forward_file"]
+    rev_file = config["reverse_file"]
+    un_file = config["unpaired_file"]
+    fastq_dir = config["file_location"] if config["file_location"] != "" else rules.downloader.output
+    pickle_file = config["family_output"] if config["family_output"] != "" else "output/family/"
+    file_loc = config["file_location"]
+    if fwd_file != "" and file_loc != "" and config["metadata_file"] != "":
+        return(f"-b {metadata} -I1 {fastq_dir}*{fwd_file} -I2 {fastq_dir}*{rev_file} -P {pickle_file}BiG-MAP.pickle")
+    elif un_file != "" and file_loc != "" and config["metadata_file"] != "":
+        return(f"-b {metadata} -U {fastq_dir}/*{un_file} -P {pickle_file}BiG-MAP.pickle")
+    elif fwd_file != "" and file_loc != "" and config["metadata_file"] == "":
+        return(f"-I1 {fastq_dir}/*{fwd_file} -I2 {fastq_dir}/*{rev_file} -P {pickle_file}BiG-MAP.pickle")
+    elif un_file != "" and file_loc != "" and config["metadata_file"] == "":
+        return(f"-U {fastq_dir}/*{un_file} -P {pickle_file}BiG-MAP.pickle")
+    elif fwd_file == "" and config["metadata_file"] != "":
+        return(f"-b {metadata} -I1 {fastq_dir}/*pass_1* -I2 {fastq_dir}/*pass_2* -P {pickle_file}BiG-MAP.pickle")
+    elif fwd_file == "" and config["metadata_file"] == "":
+        return(f"-I1 {fastq_dir}/*pass_1* -I2 {fastq_dir}/*pass_2* -P {pickle_file}BiG-MAP.pickle")
+    elif un_file == "" and config["metadata_file"] != "":
+        return(f"-b {metadata} -U {fastq_dir}/*.fastq -P {pickle_file}BiG-MAP.pickle")
+    elif un_file == "" and config["metadata_file"] == "":
+        return(f"-U {fastq_dir}/*.fastq -P {pickle_file}BiG-MAP.pickle")
+
+rule mapping:
+    input:
+        pickle_file = config["family_output"] if config["family_output"] != "" else "output/family/BiG-MAP.pickle",
+        fastq_dir = config["file_location"] if config["file_location"] != "" else rules.downloader.output
+    params:
+        command_mapping = mapping_cmd
+    output:
+        "output/mapping/biom-results/BiG-MAP.mapcore.metacore.dec.biom" if config["metadata_file"] != "" else "output/mapping/csv-results/BiG-MAP.map.results.ALL.csv"
+    conda:
+        f"{script_loc}BiG-MAP_process.yml"
+    threads:
+        workflow.cores
+    shell:
+        "python3 {script_loc}src/BiG-MAP.map.py -O output/mapping/ {params.command_mapping} -th {threads}"
+
+rule analyse:
+    input:
+        "output/mapping/biom-results/BiG-MAP.mapcore.metacore.dec.biom" if config["region"] == "core" else "output/mapping/biom-results/BiG-MAP.map.metacore.dec.biom" if config["region"] == "full" else "",
+    params:
+        data_type = config["data_type"],
+        group = config["group"],
+        compare = config["compare"]
+    output:
+        "output/analyse/tsv-results/all_RPKMs.tsv" if config["data_type"] != "" else rules.mapping.output
+    conda:
+        f"{script_loc}BiG-MAP_analyse.yml"
+    shell:
+        "python3 {script_loc}src/BiG-MAP.analyse.py --explore --compare -B {input} -T {params.data_type} -M {params.group} -g {params.compare} -O output/analyse/"

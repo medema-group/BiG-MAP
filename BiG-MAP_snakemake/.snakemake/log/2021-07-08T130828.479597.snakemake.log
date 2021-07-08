@@ -1,0 +1,33 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 15
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	1	analyse
+	1	mapping
+	3
+Select jobs to execute...
+
+[Thu Jul  8 13:08:51 2021]
+rule mapping:
+    input: output/family/BiG-MAP.pickle, output/download
+    output: output/mapping/biom-results/BiG-MAP.mapcore.metacore.dec.biom
+    jobid: 2
+    threads: 15
+
+python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.map.py -O output/mapping/ -b /mnt/scratch/pasca005/BiG-MAP_pipeline/tutorial_metaddata.txt -I1 output/download/*pass_1.fastq -I2 output/download/*pass_2.fastq -P output/ -th 15
+Activating conda environment: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+[Thu Jul  8 13:10:42 2021]
+Error in rule mapping:
+    jobid: 2
+    output: output/mapping/biom-results/BiG-MAP.mapcore.metacore.dec.biom
+    conda-env: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+    shell:
+        python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.map.py -O output/mapping/ -b /mnt/scratch/pasca005/BiG-MAP_pipeline/tutorial_metaddata.txt -I1 output/download/*pass_1.fastq -I2 output/download/*pass_2.fastq -P output/ -th 15
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/.snakemake/log/2021-07-08T130828.479597.snakemake.log

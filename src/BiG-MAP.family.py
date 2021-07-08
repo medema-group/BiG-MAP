@@ -254,11 +254,11 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     else:
         pass
     if regionno == versionno:
-        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{regionno}.fasta"
-        fasta_header = f">gb|{orgID}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
+        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.fasta"
+        fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     else:
-        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{versionno}.{organism}.{regionno}.fasta"
-        fasta_header = f">gb|{orgID}.{versionno}.{regionno}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
+        file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.fasta"
+        fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
     Outfile = os.path.join(outdir, file_name)
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
     if not os.path.exists(Outfile):
@@ -1147,7 +1147,11 @@ concerning the input files of this module.")
         HG_DNA_files = []
         for fname in GCFs.keys():
             organism = '.f'.join(ntpath.basename(fname).split(".f")[:-1])[8:]
-            orgID = '.'.join([organism.split(".")[0], organism.split(".")[1], organism.split(".")[-1]])
+            if len(organism.split(".")) > 3:
+                orgID = '.'.join([organism.split(".")[0], organism.split(".")[1], organism.split(".")[2]])
+            else:
+                orgID = '.'.join([organism.split(".")[0], organism.split(".")[1]])
+            
 
             # find housekeeping genes for org using HMMer
             if orgID not in processed:

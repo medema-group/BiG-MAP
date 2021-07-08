@@ -1,0 +1,55 @@
+#                     ### BiG-MAP ###                             #
+# For all modules, specify the required input file locations.     #
+# If you want to skip a particular step, enter the location       #
+# of the module output in the locations indicated. For instance,  #
+# If you do not want to run the analysis module, leave the input  #
+# variables blank: data_type: "". Else, use: "/path/to/location/" #
+
+# Provide the path to the BiG-MAP installation:
+BiG-MAP_loc:
+    "/path/to/BiG-MAP/" 
+
+#### BiG-MAP.download ####
+# Provide the path to the accession file
+accession:
+    "/path/to/acc_list.txt"
+## If genomes are already available, please provide the location of
+## the files and specify the file extension. Leave blank if irrelevant
+file_location:
+    "" # "/path/to/pre-existing/data/"
+forward_file:
+    "" # "pass_1.fastq.gz"
+reverse_file:
+    "" # "pass_2.fastq.gz"
+unpaired_file:
+    "" # ".fastq.gz"
+
+#### BiG-MAP.family ####
+# Provide the path to the antiSMASH output folder
+loc_smash: 
+    "/path/to/antismash/"
+## Leave loc_bigscape and loc_pfam blank if you don't want to run BiG-MAP including BiG-SCAPE
+loc_bigscape:
+    "/path/to/BiG-SCAPE/"
+loc_pfam:
+    "/path/to/pfam_files_location/"
+## If the reads to analyze are from metatranscriptomes, write "yes" below. 
+## For metagenome analyses, leave this option blank
+metatranscriptomes:
+    "" # "yes"
+## If family output is already available, please provide the 
+## BiG-MAP family output directory
+family_output:
+    "" # "/path/to/family/output/"
+
+#### BiG-MAP.map ####
+## If no metadata is provided, the BiG-MAP analyse module will not be executed
+metadata_file:
+    "/path/to/metadata.txt"
+
+#### BiG-MAP.analyse ####
+## Leave blank if you don't want to run the analysis module
+region: "core" # "core" or "full" region of the gene cluster
+data_type: "metagenomic" # "metagenomic" or "metatranscriptomic"
+group: "DiseaseStatus" # input the column title of the group to analyse, e.g. "DiseaseStatus"
+compare: "CD UC" # input the groups to compare, e.g. "CD UC"

@@ -1,0 +1,33 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 15
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	1	analyse
+	1	family
+	1	mapping
+	4
+Select jobs to execute...
+
+[Thu Jul  8 09:42:58 2021]
+rule family:
+    input: /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20
+    output: output/BiG-MAP.pickle
+    jobid: 3
+    threads: 13
+
+python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.family.py -D /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20 -O output/ -p 13 -b /mnt/scratch/pasca005/tools/BiG-SCAPE/ -pf /mnt/scratch/pasca005/tools/PfamA_DB/
+Activating conda environment: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+Terminating processes on user request, this might take some time.
+[Thu Jul  8 09:44:57 2021]
+Error in rule family:
+    jobid: 3
+    output: output/BiG-MAP.pickle
+    conda-env: /lustre/BIF/nobackup/augus011/programs/snakemake_envs/cbfb4067
+    shell:
+        python3 /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP/src/BiG-MAP.family.py -D /mnt/scratch/pasca005/HOMD_genomes/gutsmash_output_june20 -O output/ -p 13 -b /mnt/scratch/pasca005/tools/BiG-SCAPE/ -pf /mnt/scratch/pasca005/tools/PfamA_DB/
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Complete log: /lustre/BIF/nobackup/augus011/data/snakemake_big-map/BiG-MAP_snakemake/.snakemake/log/2021-07-08T094254.518789.snakemake.log
