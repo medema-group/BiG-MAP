@@ -131,6 +131,8 @@ In general, the anti- or gutSMASH-output folder should contain the results of at
 
 *-p*:   Number of used parallel threads in the BiG-SCAPE filtering step. Default = 6
 
+*NOTE*: the number of predicted MGCs may exceed the maximum number of sequences that MASH (“sketch” and “dist” functions) is able to compare, leading to an error. In this scenario, the family module can be run in batches or the code can be slightly modified to manually run the MASH analysis and MASH “paste” function (more information is available in their documentation at https://mash.readthedocs.io/en/latest/) and pick up the analysis again from that step onwards.
+
 ** 3) BiG-MAP.map.py
 This module is designed to align the WGS (paired or unpaired) reads to the reference representatives of each GCF and HGF using /bowtie2/. The following will be computed: RPKM, coverage, core coverage. The coverage is calculated using /Bedtools/, and the read count values using /Samtools/. The general usage is:
 

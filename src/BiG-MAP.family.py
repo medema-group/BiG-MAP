@@ -140,13 +140,13 @@ def getgenomegbk(infile):
     ----------
     genomegbkfile = genomefilename
     """
-    genome = infile.split("/")[-2]
+    genome = infile.split("/")[-1]
     path = "/".join(infile.split("/")[:-1])
     if genome.endswith(".gbff"):
         genome = genome[:-5]
         return ("{}/{}.gbk".format(path, genome))
     else:
-        return ("{}/{}.gbk".format(path, genome))
+        return ("{}/{}".format(path, genome))
 
 
 def parsegbkcluster(infile, nflank):
@@ -219,6 +219,7 @@ def parsegbkcluster(infile, nflank):
         organism = organism.replace(")", "")
         organism = organism.replace("/", "-")
         organism = organism.replace('"', "")
+        organism = organism.replace('.', "_")
     return (DNA, "".join(proteins), ":".join(GCs), organism, core_relative_locs)
 
 
@@ -240,7 +241,7 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
         string, path to output directory
     returns
     ----------
-    Outfile = the name of the written fasta file
+    outfile = the name of the written fasta file
     orgID = ID for the input organism genome
     fasta_header = header of the cluster dna sequence
     """
@@ -259,13 +260,13 @@ def writefasta(sequences, seqstype, cluster, organism, infile, outdir):
     else:
         file_name = f"{seqstype + cluster if 'HG' in seqstype else seqstype}-{orgID}.{organism}.fasta"
         fasta_header = f">gb|{orgID}|{seqstype}--Entryname={cluster}--OS={organism}--SMASHregion={regionno}"
-    Outfile = os.path.join(outdir, file_name)
+    outfile = os.path.join(outdir, file_name)
     seq = "\n".join(str(sequences)[i:i + 80] for i in range(0, len(str(sequences)), 80))
-    if not os.path.exists(Outfile):
-        with open(Outfile, "w") as o:
+    if not os.path.exists(outfile):
+        with open(outfile, "w") as o:
             o.write(f"{fasta_header}\n")
             o.write(f"{seq}\n")
-    return (Outfile, orgID, fasta_header[1:])
+    return (outfile, orgID, fasta_header[1:])
 
 
 def locs2bedfile(indict, outfile):
@@ -677,7 +678,7 @@ def prepareseqdb(genome_gbkfile, outdir):
     with open(os.path.join(outdir, "seqdb.faa"), "w") as db:
         for record in gbkcontents:
             record_no = record.name.split(".")[0]
-            scaff_number = int(record_no[-3:])
+            scaff_number = record_no[-3:]
             for feature in record.features:
                 if feature.type == "CDS":
                     if "translation" in feature.qualifiers.keys():
@@ -770,7 +771,7 @@ def getgenefromgbk(gbkfile, location):  # change to work with locations
     """
     ret = ""
     scaff_number, start, end, strand = location.split(",")
-    scaff_number = int(scaff_number)
+    scaff_number = scaff_number
 
     # Making the FeatureLocation
     f_start = BeforePosition(start.strip("<")) if "<" in start else ExactPosition(start)
@@ -780,7 +781,7 @@ def getgenefromgbk(gbkfile, location):  # change to work with locations
     gbkcontents = SeqIO.parse(gbkfile, "genbank")
     for record in gbkcontents:
         record_no = record.name.split(".")[0]
-        scaff_check = int(record_no[-3:])  # = scaffold number
+        scaff_check = record_no[-3:]  # = scaffold number
         if scaff_check == scaff_number:
             DNA = record.seq
     ret = f.extract(DNA)  # The DNA sequence of the housekeepinggene
@@ -1147,11 +1148,16 @@ concerning the input files of this module.")
         HG_DNA_files = []
         for fname in GCFs.keys():
             organism = '.f'.join(ntpath.basename(fname).split(".f")[:-1])[8:]
-            if len(organism.split(".")) > 3:
+            if len(organism.split(".")) == 4:
                 orgID = '.'.join([organism.split(".")[0], organism.split(".")[1], organism.split(".")[2]])
+            elif len(organism.split(".")) == 5:
+                orgID = '.'.join([organism.split(".")[0], organism.split(".")[1], organism.split(".")[2], organism.split(".")[3]])
+            elif len(organism.split(".")) > 5:
+                print("Please rename your input .gbk file to contain max 3 dots in a row. \
+For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
+                sys.exit()
             else:
                 orgID = '.'.join([organism.split(".")[0], organism.split(".")[1]])
-            
 
             # find housekeeping genes for org using HMMer
             if orgID not in processed:
@@ -1165,9 +1171,9 @@ concerning the input files of this module.")
                         prot_seq = getprotseqfromdb(seqdb, loc)
                         DNA_seq, abs_hloc = getgenefromgbk(genomedict[orgID], loc)
                         f_prot, ID_prot, housekeepingheader = writefasta(prot_seq, "HG_PROT", \
-                        gene, organism, fname, args.outdir + os.sep)
+                        gene, organism, genomedict[orgID], args.outdir + os.sep)
                         f_DNA, ID_DNA, housekeepingheader = writefasta(DNA_seq, "HG_DNA", \
-                        gene, organism, fname, args.outdir + os.sep)
+                        gene, organism, genomedict[orgID], args.outdir + os.sep)
                         HG_prot_files.append(f_prot)
                         HG_DNA_files.append(f_DNA)
 
