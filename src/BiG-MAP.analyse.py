@@ -1065,17 +1065,29 @@ def main():
         # Make the explore heatmap
         if sample_type == "METATRANSCRIPTOMIC":
             gc_names, sign_hg, id_list = get_relevant_hg(sign_gc, norm_df)
-            pandas_hg = make_hg_df(gc_names, sign_hg, id_list, norm_df)
-            gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
-            hg_sorted = sort_housekeeping(sign_gc, pandas_hg, sign_cov)
-            hg_sorted.to_csv((os.path.join(args.outdir, 'explore_HGs.tsv')), sep='\t')
-            gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
-            if args.file_name_explore:
-                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
-                sample_type, args.outdir, args.file_name_explore, hg_sorted)
+            if sign_hg == []:
+                print("There are no housekeeping genes to include in the explore heatmap")
+                gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
+                gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
+                sample_type = "METAGENOMIC"
+                if args.file_name_explore:
+                    make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                    sample_type, args.outdir, args.file_name_explore)
+                else:
+                    make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                    sample_type, args.outdir)
             else:
-                make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
-                sample_type, args.outdir, "explore_heatmap", hg_sorted)
+                pandas_hg = make_hg_df(gc_names, sign_hg, id_list, norm_df)
+                gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
+                hg_sorted = sort_housekeeping(sign_gc, pandas_hg, sign_cov)
+                hg_sorted.to_csv((os.path.join(args.outdir, 'explore_HGs.tsv')), sep='\t')
+                gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
+                if args.file_name_explore:
+                    make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                    sample_type, args.outdir, args.file_name_explore, hg_sorted)
+                else:
+                    make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
+                    sample_type, args.outdir, "explore_heatmap", hg_sorted)
         else:
             gc_sorted, meta_types = sort_coverage(sign_gc, sign_cov, metadata)
             gc_sorted.to_csv((os.path.join(args.outdir, 'explore_GCs.tsv')), sep='\t')
@@ -1119,19 +1131,29 @@ def main():
             if sample_type == "METATRANSCRIPTOMIC":
                 # get the relevant housekeeping genes
                 gc_names, sign_hg, id_list = get_relevant_hg(sign_kw, norm_df)
-                kw_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, \
-                norm_df, args.groups, metadata)
-                sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
-                kw_hg_pandas = sort_housekeeping(sign_kw, kw_hg_pandas, cov)
-                kw_hg_pandas = kw_hg_pandas.replace(np.nan, 0.0)
-                kw_hg_pandas.to_csv((os.path.join(args.outdir, \
-                f'{group1}vs{group2}_HG_kw.tsv')), sep='\t')
-                sorted_gc.to_csv((os.path.join(args.outdir, \
-                f'{group1}vs{group2}_GC_kw.tsv')), sep='\t')
-                # make the kruskal wallis figure
-                make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-                sample_type, args.outdir, args.groups, kruskal_file, "kruskal", \
-                args.alpha_kruskal, kw_hg_pandas)
+                if sign_hg == []:
+                    print("There are no housekeeping genes to include in the kruskal wallis heatmap")
+                    sample_type = "METAGENOMIC"
+                    sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
+                    sorted_gc.to_csv((os.path.join(args.outdir, \
+                    f'{group1}vs{group2}_GC_kw.tsv')), sep='\t')
+                    # make the kruskal wallis figure
+                    make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
+                    sample_type, args.outdir, args.groups, kruskal_file, "kruskal", args.alpha_kruskal)
+                else:
+                    kw_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, \
+                    norm_df, args.groups, metadata)
+                    sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
+                    kw_hg_pandas = sort_housekeeping(sign_kw, kw_hg_pandas, cov)
+                    kw_hg_pandas = kw_hg_pandas.replace(np.nan, 0.0)
+                    kw_hg_pandas.to_csv((os.path.join(args.outdir, \
+                    f'{group1}vs{group2}_HG_kw.tsv')), sep='\t')
+                    sorted_gc.to_csv((os.path.join(args.outdir, \
+                    f'{group1}vs{group2}_GC_kw.tsv')), sep='\t')
+                    # make the kruskal wallis figure
+                    make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
+                    sample_type, args.outdir, args.groups, kruskal_file, "kruskal", \
+                    args.alpha_kruskal, kw_hg_pandas)
             else:
                 sorted_cov, log_fold, sorted_gc = structure_data(sign_kw, cov, log_fold)
                 sorted_gc.to_csv((os.path.join(args.outdir, \
@@ -1156,17 +1178,27 @@ def main():
         if sample_type == "METATRANSCRIPTOMIC":
             # get the relevant housekeeping genes
             gc_names, sign_hg, id_list = get_relevant_hg(sign_fit, norm_df)
-            fit_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, norm_df, args.groups, metadata)
-            sorted_cov, log_fold, sorted_gc= structure_data(sign_fit, cov, log_fold)
-            fit_hg_pandas = sort_housekeeping(sign_fit, fit_hg_pandas, cov)
-            fit_hg_pandas = fit_hg_pandas.replace(np.nan, 0.0)
-            fit_hg_pandas.to_csv((os.path.join(args.outdir, \
-            f'{group1}vs{group2}_HG_fz.tsv')), sep='\t')
-            sorted_gc.to_csv((os.path.join(args.outdir, \
-            f'{group1}vs{group2}_GC_fz.tsv')), sep='\t')
-            # make the fitzig figure
-            make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
-            sample_type, args.outdir, args.groups, fitzig_file, "fitzig", args.alpha_fitzig, fit_hg_pandas)
+            if sign_hg == []:
+                print("There are no housekeeping genes to include in the fitZIG heatmap")
+                sample_type = "METAGENOMIC"
+                sorted_cov, log_fold, sorted_gc = structure_data(sign_fit, cov, log_fold)
+                sorted_gc.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_GC_fz.tsv')), sep='\t')
+                # make the fitzig figure
+                make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
+                sample_type, args.outdir, args.groups, fitzig_file, "fitzig", args.alpha_fitzig)
+            else:
+                fit_hg_pandas = make_hg_df(gc_names, sign_hg, id_list, norm_df, args.groups, metadata)
+                sorted_cov, log_fold, sorted_gc= structure_data(sign_fit, cov, log_fold)
+                fit_hg_pandas = sort_housekeeping(sign_fit, fit_hg_pandas, cov)
+                fit_hg_pandas = fit_hg_pandas.replace(np.nan, 0.0)
+                fit_hg_pandas.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_HG_fz.tsv')), sep='\t')
+                sorted_gc.to_csv((os.path.join(args.outdir, \
+                f'{group1}vs{group2}_GC_fz.tsv')), sep='\t')
+                # make the fitzig figure
+                make_compare(sorted_gc, log_fold, sorted_cov, group_meta, args.metagroup, \
+                sample_type, args.outdir, args.groups, fitzig_file, "fitzig", args.alpha_fitzig, fit_hg_pandas)
         else:
             sorted_cov, log_fold, sorted_gc = structure_data(sign_fit, cov, log_fold)
             sorted_gc.to_csv((os.path.join(args.outdir, \

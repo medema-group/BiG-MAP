@@ -1186,6 +1186,7 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
                         gbktofasta(genomedict[orgID], os.path.join(args.outdir, \
                         organism +".fasta"), args.outdir + os.sep)
             processed.append(organism)
+        print(HG_prot_files)
 
         for prot_file in HG_prot_files:
             GCFs[prot_file] = [prot_file]
