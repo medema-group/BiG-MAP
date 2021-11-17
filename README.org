@@ -121,7 +121,7 @@ BiG-MAP.GCF.json = Dictionary that contains the BiG-SCAPE GCFs
 
 In general, the anti- or gutSMASH-output folder should contain the results of at least several runs. Optional flags to run this module include:
 
-*-tg*:  Fraction between 0 and 1; the similarity threshold that determines when the protein sequences of the gene clusters can be considered similar. Default = 0.8.
+*-tg*:  Fraction between 0 and 1; the similarity threshold that determines when the protein sequences of the gene clusters can be considered similar. If the threshold is set to zero, all gene clusters will form their own gene cluster families, whereas a threshold of one will result in one large family containing all gene clusters. Default = 0.8.
 
 *-th*:  Fraction between 0 and 1; the similarity threshold that determines when the protein sequences of the housekeeping genes can be considered similar. Default = 0.1
 
