@@ -62,6 +62,7 @@ Obligatory arguments:
     --compare   Make a comparison between two groups using fitZIG and Kruskal-Wallis.
     -g          Space separated list of 2 groups that are to be compared.
                 Example: UC and Control --> UC Control.
+    -co         Cut-off value to filter BGCs with low amount of hits. Default=0.25.
     -af         Alpha value to determine significance of the fitZIG model. Default=0.05.
     -ak         Alpha value to determine significance of the Kruskal Wallis model. Default=0.05.
     -fc         Output file names for Kruskal Wallis and fitZIG heatmaps. Input first the 
@@ -89,6 +90,8 @@ _____________________________________________________________
                         type=float, default=0.05, required=False)
     parser.add_argument("-ak", "--alpha_kruskal", help=argparse.SUPPRESS,
                         type=float, default=0.05, required=False)
+    parser.add_argument("-co", "--cutoff_samples", help=argparse.SUPPRESS,
+                        type=float, default=0.25, required=False)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS,
                         required=True)
     parser.add_argument("-fe", "--file_name_explore", help=argparse.SUPPRESS,
@@ -154,7 +157,7 @@ Please check the input metadata and filenames for BiG-MAP.map and the resulting 
                 metadata[sample["id"]] = sample["metadata"][metagroup]
     return(index_samples, list_samples, metadata)
 
-def filter_rows(json_file, sample_index):
+def filter_rows(json_file, sample_index, cut_off):
     """
     Removes rows which don't have at least the amount of positives of
     the cutoff
@@ -175,8 +178,8 @@ def filter_rows(json_file, sample_index):
     out_list = []
     gc_ids = []
 
-    # Cut-off such that 25% of the samples have a hit
-    cutoff = int((len(sample_index.keys()))*0.25)
+    # Cut-off such that 25% (default) of the samples have a hit
+    cutoff = int((len(sample_index.keys()))*cut_off)
     # Determines the amount of hits for a GC
     for data_index in json_file["data"]:
         for key in sample_index.keys():
@@ -292,7 +295,7 @@ def norm_log2_data(df):
     norm_df = (np.log2(norm_df)).replace(np.nan, 0.0) # calculate log2
     return norm_df
 
-def get_coverage(biom_dict, sample_list, gc_names):
+def get_coverage(biom_dict, sample_list, gc_names, explore=None):
     """ get coverage scores from the biom file
     ----------
     biom_dict
@@ -309,7 +312,16 @@ def get_coverage(biom_dict, sample_list, gc_names):
     list_samples = []
     list_values = []
     for ids in biom_dict["rows"]:
-        if ids["id"] in gc_names:
+        if explore == None:
+            if ids["id"] in gc_names:
+                for sample_name in ids["metadata"].keys():
+                    if sample_name in sample_list and sample_name not in list_samples:
+                        list_samples.append(sample_name)
+                        list_values.append(float(ids["metadata"][sample_name]))
+                out_dict[ids["id"]] = list_values
+                list_samples = []
+                list_values = []
+        else:
             for sample_name in ids["metadata"].keys():
                 if sample_name in sample_list and sample_name not in list_samples:
                     list_samples.append(sample_name)
@@ -1047,7 +1059,7 @@ def main():
     # Filtering input data
     sample_index, sample_list, metadata = get_sample_type(sample_type, \
     biom_dict, args.metagroup)
-    index_list = filter_rows(biom_dict, sample_index)
+    index_list = filter_rows(biom_dict, sample_index, args.cutoff_samples)
     gc_values = get_gc_ids(biom_dict, index_list, sample_index)
     # Making a pandas dataframe and normalize the data
     gc_df = make_dataframe(gc_values, sample_list)
@@ -1058,7 +1070,7 @@ def main():
     if args.explore:
         print("__________Making explore heatmap__________________")
         # Extract the coverage scores from the BIOM file
-        dict_cov = get_coverage(biom_dict, sample_list, list(gc_values.keys()))
+        dict_cov = get_coverage(biom_dict, sample_list, list(gc_values.keys()), "explore")
         cov = make_dataframe(dict_cov, sample_list)
         cov.to_csv((os.path.join(args.outdir, 'coverage.tsv')), sep='\t')
         sign_gc, sign_cov = best_cov(cov, norm_df, args.threshold)
