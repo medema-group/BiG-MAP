@@ -372,7 +372,7 @@ def correct_family_size(cluster, key, number_reads, GCF_dict):
         bg_fam_size = len(fam_size)
         if cluster in GCF_dict[key]:
             read_total += int(number_reads)
-    adj_key = name.split("NR=")[0]
+    adj_key = key.split("NR=")[0]
     adj_key = f"{adj_key}NR={total_fam_size}--BG={bg_fam_size}"
 
     return(adj_key, read_total)
