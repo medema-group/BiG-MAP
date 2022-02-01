@@ -335,7 +335,7 @@ def correct_counts(countsfile, family):
 
                     # If the BiG-SCAPE family is larger than 1, adjust the number of family members
                     if cluster == key and len(family[key]) > 1:
-                        adj_key, number = correct_family_size(cluster, key, nreads, family)
+                        adj_key, number = correct_family_size(cluster, key, nreads, family, countsfile)
                         counts_adj.write(f"{adj_key}\t{length}\t{number}\t{nnoreads}\n")
 
                     # The BiG-SCAPE family size is equal to 1, no correction is needed
@@ -347,7 +347,7 @@ def correct_counts(countsfile, family):
                         pass
     return(corrected_countsfile)
 
-def correct_family_size(cluster, key, number_reads, GCF_dict):
+def correct_family_size(cluster, key, number_reads, GCF_dict, countsfile):
     """
     calculate the total sum of counts and number of family members of a BiG-SCAPE GCF family
     ----------
@@ -371,7 +371,12 @@ def correct_family_size(cluster, key, number_reads, GCF_dict):
         total_fam_size = int(sum(fam_size))
         bg_fam_size = len(fam_size)
         if cluster in GCF_dict[key]:
-            read_total += int(number_reads)
+            with open(countsfile, "r") as counts:
+                for line in counts:
+                    cluster1, length1, nreads1, nnoreads1 = line.strip().split("\t")
+                    if name == cluster1:
+                        read_total += int(nreads1)
+
     adj_key = key.split("NR=")[0]
     adj_key = f"{adj_key}NR={total_fam_size}--BG={bg_fam_size}"
 
