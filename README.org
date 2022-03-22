@@ -222,7 +222,7 @@ Navigate to the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In t
 
 * Requirements
 ** Input data:
-- antiSMASH v5.0
+- antiSMASH v5.0 or higher
 - gutSMASH
 
 ** Software:
