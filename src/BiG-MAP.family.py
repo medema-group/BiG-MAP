@@ -94,6 +94,7 @@ ______________________________________________________________________
     parser.add_argument("-g", "--genomefiles",
                         help=argparse.SUPPRESS, required=False, type=bool, default=False)
     parser.add_argument("-b", "--bigscape_path", help=argparse.SUPPRESS, default=False)
+    parser.add_argument('-br', "--bigscape_results", help="Provide results path from prior BiG-SCAPE analysis (should be the parent directory with the subdirectory 'network_files/`).", default=None, required=False)
     parser.add_argument("-pf", "--pfam", help=argparse.SUPPRESS, default=False)
     parser.add_argument("-c", "--cut-off", help=argparse.SUPPRESS,
                         type=float, default=0.2, required=False)
@@ -889,6 +890,24 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
 ######################################################################
 # Parsing BiG-SCAPE results
 ######################################################################
+def retrieve_existing_bigscapefiles(outdir):
+    """Retrieves the .tsv files from an existing BiG-SCAPE directory including their paths.
+    parameters
+    ----------
+    outdir
+        string, path to the BiG-SCAPE output directory
+    returns
+    ----------
+    """
+    network_dir = os.path.join(outdir + "/network_files")
+    try:
+        for dirpath, dirnames, files in os.walk(network_dir):
+            for filename in files:
+                if filename.endswith(".tsv") and "clustering" in filename:
+                    yield (os.path.join(dirpath, filename))
+    except:
+        pass
+
 def retrieve_bigscapefiles(outdir):
     """Retrieves the .tsv files from the output directory including their paths.
     parameters
@@ -1103,7 +1122,15 @@ concerning the input files of this module.")
         ###################################
         # Run second redundancy filtering
         ###################################
-        if args.bigscape_path:
+        if args.bigscape_results != None:
+            parsed = {}
+            print("___Retrieving Existing BiG-SCAPE Results___")
+            for tsv_file in retrieve_existing_bigscapefiles(args.outdir):
+                parsed.update(parse_bigscape_result(tsv_file))
+
+            dict_json = make_jsondict(parsed, fastadict)
+            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+        elif args.bigscape_path:
             parsed = {}
             list_gbkfiles = list_representatives(fastadict)
             print("________Preparing BiG-SCAPE input__________")
@@ -1123,7 +1150,7 @@ concerning the input files of this module.")
         #############################
         # Pickling
         #############################
-        if args.bigscape_path:
+        if args.bigscape_path or args.bigscape_results != None:
             pickle_files(fastadict, fasta_file, bed_file, args.outdir, dict_json)
         else:
             pickle_files(fastadict, fasta_file, bed_file, args.outdir)
@@ -1204,7 +1231,15 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         ###################################
         # Run second redundancy filtering
         ###################################
-        if args.bigscape_path:
+        if args.bigscape_results != None:
+            parsed = {}
+            print("___Retrieving Existing BiG-SCAPE Results___")
+            for tsv_file in retrieve_existing_bigscapefiles(args.outdir):
+                parsed.update(parse_bigscape_result(tsv_file))
+
+            dict_json = make_jsondict(parsed, fastadict_ALL)
+            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+        elif args.bigscape_path:
             parsed = {}
             list_gbkfiles = list_representatives(fastadict_ALL)
             print("________Preparing BiG-SCAPE input__________")
