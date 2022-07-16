@@ -1125,7 +1125,7 @@ concerning the input files of this module.")
         if args.bigscape_results != None:
             parsed = {}
             print("___Retrieving Existing BiG-SCAPE Results___")
-            for tsv_file in retrieve_existing_bigscapefiles(args.outdir):
+            for tsv_file in retrieve_existing_bigscapefiles(args.bigscape_results):
                 parsed.update(parse_bigscape_result(tsv_file))
 
             dict_json = make_jsondict(parsed, fastadict)
@@ -1234,7 +1234,7 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         if args.bigscape_results != None:
             parsed = {}
             print("___Retrieving Existing BiG-SCAPE Results___")
-            for tsv_file in retrieve_existing_bigscapefiles(args.outdir):
+            for tsv_file in retrieve_existing_bigscapefiles(args.bigscape_results):
                 parsed.update(parse_bigscape_result(tsv_file))
 
             dict_json = make_jsondict(parsed, fastadict_ALL)
