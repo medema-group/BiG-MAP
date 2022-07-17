@@ -1262,7 +1262,7 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         #############################
         # Pickling
         #############################
-        if args.bigscape_path:
+        if args.bigscape_path or args.bigscape_results != None:
             pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir, dict_json)
         else:
             pickle_files(fastadict_ALL, fasta_file, bed_file, args.outdir)
