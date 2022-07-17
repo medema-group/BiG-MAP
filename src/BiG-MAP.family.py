@@ -1123,6 +1123,8 @@ concerning the input files of this module.")
         # Run second redundancy filtering
         ###################################
         if args.bigscape_results != None:
+            if not os.path.isdir(args.bigscape_results):
+                raise RuntimeError('BiG-SCAPE results directory provided by user does not exist!')
             parsed = {}
             print("___Retrieving Existing BiG-SCAPE Results___")
             for tsv_file in retrieve_existing_bigscapefiles(args.bigscape_results):
@@ -1232,6 +1234,8 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         # Run second redundancy filtering
         ###################################
         if args.bigscape_results != None:
+            if not os.path.isdir(args.bigscape_results):
+                raise RuntimeError('BiG-SCAPE results directory provided by user does not exist!')
             parsed = {}
             print("___Retrieving Existing BiG-SCAPE Results___")
             for tsv_file in retrieve_existing_bigscapefiles(args.bigscape_results):
