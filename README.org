@@ -139,7 +139,7 @@ This module is designed to align the WGS (paired or unpaired) reads to the refer
 #+BEGIN_EXAMPLE
 conda activate BiG-MAP_process
 python3 BiG-MAP.map.py -h
-python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-R [reference] -F [family] | -P [pickled file]} -O [outdir] -b [metadata] [Options*]
+python3 BiG-MAP.map.py {-I1 [mate-1s] -I2 [mate-2s] | -U [samples]} {-F [family] | -P [pickled file]} -O [outdir] -b [metadata] [Options*]
 #+END_EXAMPLE
 
 To map the 8 samples from Schirmer et al. (2018) to the GCF reference representatives, and correct for the BiG-SCAPE GCF size, run:
