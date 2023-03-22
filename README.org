@@ -43,10 +43,10 @@ Then install all the dependencies from the BiG-MAP.yml file with:
 #+END_EXAMPLE
 This step is optional but to make use of the second redundancy filtering step in the BiG-MAP.family module, download BiG-SCAPE using: 
 #+BEGIN_EXAMPLE
-~$ git clone https://git.wageningenur.nl/medema-group/BiG-SCAPE
+~$ git clone https://github.com/medema-group/BiG-SCAPE/
 #+END_EXAMPLE
 
-Further below you will find more information on how to install BiG-SCAPE and its dependencies, but you can also check the wiki page for more information: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. 
+Further below you will find more information on how to install BiG-SCAPE and its dependencies, but you can also check the wiki page for more information: https://github.com/medema-group/BiG-SCAPE/wiki. 
 
 * Overview and example run
 The typical workflow for BiG-MAP consists of the following steps:
