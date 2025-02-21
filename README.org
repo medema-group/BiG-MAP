@@ -44,6 +44,11 @@ Then install all the dependencies from the BiG-MAP.yml file with:
 This step is optional but to make use of the second redundancy filtering step in the BiG-MAP.family module, download BiG-SCAPE using: 
 #+BEGIN_EXAMPLE
 ~$ git clone https://github.com/medema-group/BiG-SCAPE/
+
+# update the environment using the BiG-SCAPE environment file with conda
+~$ conda env update --name BiG-MAP_process --file BiG-SCAPE/environment.yml
+# or with (micro)mamba
+~$ mamba install --name BiG-MAP_process --file BiG-SCAPE/environment.yml
 #+END_EXAMPLE
 
 Further below you will find more information on how to install BiG-SCAPE and its dependencies, but you can also check the wiki page for more information: https://github.com/medema-group/BiG-SCAPE/wiki. 
@@ -89,7 +94,7 @@ python3 BiG-MAP.download.py -A Acc_list.txt -O /usr001/fastq/schirmer/
 #+END_EXAMPLE
 
 ** 2) BiG-MAP.family.py
-The main purpose of this module is to group gene clusters into GCFs using sequence similarity. The first redundancy filtering step is performed by MASH, that by default uses 0.8 sequence similarity cut-off but can be changed as desired. Additionally, a second round of redundancy filtering can be performed by using BiG-SCAPE. We strongly recommend using BiG-SCAPE for a more accurate redundancy filtering. For that, look at the BiG-SCAPE wiki on how to install it: https://git.wageningenur.nl/medema-group/BiG-SCAPE/-/wikis/installation. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). 
+The main purpose of this module is to group gene clusters into GCFs using sequence similarity. The first redundancy filtering step is performed by MASH, that by default uses 0.8 sequence similarity cut-off but can be changed as desired. Additionally, a second round of redundancy filtering can be performed by using BiG-SCAPE. We strongly recommend using BiG-SCAPE for a more accurate redundancy filtering. For that, look at the BiG-SCAPE wiki on how to install it: https://github.com/medema-group/BiG-SCAPE/wiki/01.-Installing-and-Running-BiG-SCAPE. To run BiG-SCAPE, you will also need to have the latest (processed) Pfam database /Pfam-A.hmm.gz/ available from the Pfam FTP website (https://pfam.xfam.org/). Once the /Pfam-A.hmm.gz/ file is downloaded, uncompress it and process it using the /hmmpress/ command from the HMMER suit (http://hmmer.org/). 
 
 
 BiG-MAP.family takes as input the output directories of any anti- or gutSMASH run. Given a set of genomes, gutSMASH/antiSMASH can predict multiple gene clusters, thus the output folders containing the predicted gene clusters for each genome are the ones used as input for this module. Please, take into account that it needs to be run beforehand. To follow this tutorial without previously running anti- or gutSMASH, you can find 10 exemplary gutSMASH output folders in here: [[https://github.com/medema-group/BiG-MAP/tree/master/example_data][example data]] folder. 
@@ -235,7 +240,7 @@ Navigate to the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In t
 - Samtools
 - Bedtools
 - biom
-- BiG-SCAPE=20191011
+- BiG-SCAPE=2.0.0
 
 ** Packages:
 *** Python
