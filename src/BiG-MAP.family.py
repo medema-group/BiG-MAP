@@ -914,7 +914,7 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     try:
         cmd_bigscape = f"python3 {bigscape_exec} cluster -i {gbk_files} -o {output_dir} \
         -c {cores} --pfam-path {pfamfiles} --gcf-cutoffs {cut_off} --hybrids-off \
-        --include-singletons --quiet"
+        --include-singletons --quiet --force-gbk"
         subprocess.check_output(cmd_bigscape, shell=True)
     except subprocess.CalledProcessError:
         raise RuntimeError("BiG-SCAPE encountered a problem, see the log in bigscape_output for more information")
