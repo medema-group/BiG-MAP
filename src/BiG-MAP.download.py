@@ -50,10 +50,16 @@ Obligatory arguments:
           selector: https://www.ncbi.nlm.nih.gov/Traces/study/?
     -O    Put path to the output folder where the results should be
           deposited. Default = current folder (.)
+
+Options:
+    -f    Boolean: Utilize fasterq-dump for faster file conversion.
+          Will not result in gzipped fastq files, but fastq conversion
+          can be up to ten times faster. Otherwise uses fastq-dump.
 ______________________________________________________________________
 ''')
     parser.add_argument( "-O", "--outdir", help=argparse.SUPPRESS, required = True)
     parser.add_argument( "-A", "--acclist", help=argparse.SUPPRESS, required = True)
+    parser.add_argument("-f", "--faster", help=argparse.SUPPRESS, action="store_true", required = False)
     return(parser.parse_args())
 
 ######################################################################
@@ -120,16 +126,15 @@ def downloadSRA(acc, outdir):
     ----------
    """
     try:
-        output_file = os.path.join(outdir, acc + '.sra')
-        cmd_download = f"prefetch --type fastq {acc} -o {output_file} "
-        res_download = subprocess.check_output(cmd_download, shell=True)
         print(f'Downloading sample {acc}')
+        cmd_download = f"prefetch {acc} -O {outdir}"
+        res_download = subprocess.check_output(cmd_download, shell=True)
     except:
-        print(f'Unable to downaload sample {acc}')
+        print(f'Unable to download sample {acc}')
         pass
     return()
 
-def convertSRAtofastq(acc, outdir):
+def convertSRAtofastq(acc, outdir, faster):
     """Extracts the .fastq files from the downloaded .sra files
     parameters
     ----------
@@ -137,17 +142,29 @@ def convertSRAtofastq(acc, outdir):
         str, path to the output directory    
     acc 
         str, name of the processed accession
+    faster
+        bool, use fasterq-dump instead of fastq-dump
     returns
     ----------
     """
-    if os.path.exists("{}/{}_pass_1.fastq.gz".format(outdir, acc)):
-        print("The .fastq file for {}*.fastq.gz already exists in {}".format(acc, outdir))
+    out_fastq = os.path.join(outdir, acc + "_pass_1.fastq")
+    if os.path.exists(out_fastq) or os.path.exists(out_fastq + ".gz"):
+        print("The .fastq file for {} already exists in {}".format(acc, outdir))
+        return
+
+    print(f'Converting SRA {acc} into fastq format')
+    sra_folder = os.path.join(outdir, acc)
+
+    if faster:
+        # correct output file format and names to be consistent with fastq-dump
+        # commands are identical as added args to fastq-dump are default in fasterq-dump
+        base_fastq = os.path.join(outdir, acc + "_pass.fastq")
+        cmd = f"fasterq-dump --seq-defline '@$ac.$si.$ri $sn length=$rl'\
+            --qual-defline '+$ac.$si.$ri $sn length=$rl' --outfile {base_fastq} {sra_folder}"
     else:
-        sra_file = os.path.join(outdir, acc + '.sra')
         cmd = f"fastq-dump --gzip --skip-technical\
-        --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {sra_file}"
-        res_download = subprocess.check_output(cmd, shell=True)
-        print(f'Converting SRA {acc} into fastq format')
+        --readids --read-filter pass --dumpbase --split-3 --clip --outdir {outdir} {sra_folder}"
+    res_download = subprocess.check_output(cmd, shell=True)
     return()
         
 def sendnotification(acc, outdir, lst):
@@ -194,7 +211,7 @@ def main():
         accessions = parsemetadata(args.datanumber)
     for acc in accessions:
         downloadSRA(acc, args.outdir)
-        convertSRAtofastq(acc, args.outdir)
+        convertSRAtofastq(acc, args.outdir, args.faster)
         sendnotification(acc, args.outdir, accessions)
 
 # Main code

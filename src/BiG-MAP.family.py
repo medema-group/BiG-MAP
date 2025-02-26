@@ -75,7 +75,7 @@ Options:
     -k   Specify the k-mer size used by Mash. It is recommended to read the
          Mash instructions when changing this parameter. Default = 16
     -b   Name of the path to bigscape.py. Default = False
-    -pf  Path to pfam file locations. Default = False
+    -pf  Path to pfam file, e.g. pfam/Pfam-A.hmm. Default = False
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
     --metatranscriptomes If the reads to analyze are from metatranscriptomes,
@@ -856,6 +856,40 @@ def list_representatives(GCF_dict):
 ######################################################################
 # Running BiG-SCAPE
 ######################################################################
+def run_bigscape_workflow(args, fastadict):
+    """Workflow to run bigscape v2 and parse results
+    Parameters
+    ----------
+    args
+        dictionary, command line arguments
+    fastadict
+        dictionary, {fastaheader: [fastaheaders that are similar]}
+    returns
+    ----------
+    dict_json: new BiG-SCAPE analysed {fastaheader: [fastaheaders that are similar]}
+    """
+    parsed_families = {}
+    list_gbkfiles = list_representatives(fastadict)
+    print("Preparing BiG-SCAPE input".center(50, "_"))
+    for files in args.indir:
+        for gbk_file in retrieveclusterfiles(files, args.outdir):
+            movegbk(args.outdir, gbk_file, list_gbkfiles)
+
+    print("Running BiG-SCAPE".center(50, "_"))
+    run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
+
+    for tsv_file in retrieve_bigscapefiles(args.outdir):
+        parsed_families.update(parse_bigscape_result(tsv_file))
+
+    db_path = os.path.join(args.outdir, "bigscape_output", "bigscape_output.db")
+    parsed_representatives = assign_gcf_representatives(parsed_families, db_path)
+    print(f"Selected {len(parsed_representatives)} representatives".center(50, "_"))
+
+    dict_json = make_jsondict(parsed_representatives, fastadict)
+    writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+    return dict_json
+
+
 def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     """Runs BiG-SCAPE
     Parameters
@@ -876,13 +910,14 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     if "bigscape.py" in path_to_bigscape:
         bigscape_exec = path_to_bigscape
     else:
-        bigscape_exec = os.path.join(path_to_bigscape, 'bigscape.py')
+        bigscape_exec = os.path.join(path_to_bigscape, "bigscape.py")
     try:
-        cmd_bigscape = f"python3 {bigscape_exec} -i {gbk_files} -o {output_dir} -c {cores} \
-        --pfam_dir {pfamfiles} --cutoffs {cut_off} --clans-off --hybrids-off --mibig"
+        cmd_bigscape = f"python3 {bigscape_exec} cluster -i {gbk_files} -o {output_dir} \
+        -c {cores} --pfam-path {pfamfiles} --gcf-cutoffs {cut_off} --hybrids-off \
+        --include-singletons --quiet --force-gbk"
         subprocess.check_output(cmd_bigscape, shell=True)
-    except(subprocess.CalledProcessError):
-        pass  # raise error here
+    except subprocess.CalledProcessError:
+        raise RuntimeError("BiG-SCAPE encountered a problem, see the log in bigscape_output for more information")
     return
 
 
@@ -898,9 +933,9 @@ def retrieve_bigscapefiles(outdir):
     returns
     ----------
     """
-    network_dir = os.path.join(outdir, "bigscape_output/network_files")
+    output_dir = os.path.join(outdir, "bigscape_output/output_files")
     try:
-        for dirpath, dirnames, files in os.walk(network_dir):
+        for dirpath, dirnames, files in os.walk(output_dir):
             for filename in files:
                 if filename.endswith(".tsv") and "clustering" in filename:
                     yield (os.path.join(dirpath, filename))
@@ -915,24 +950,56 @@ def parse_bigscape_result(bigscape_result):
         string, path and name of the .tsv file
     returns
     ----------
-    GCFs = dict, {family orgID: family members}
+    GCFs = dict, {bigscape family number: family members}
     """
     GCFs = {}
-    family_to_key = {}
     with open(bigscape_result, "r") as bigscape_file:
+        # skip header line
+        bigscape_file.readline()
         for line in bigscape_file:
             if not line.startswith("#"):
                 gene_lists = line.split()
-                gene = gene_lists[0]
-                familynr = gene_lists[1]
-                if familynr not in family_to_key.keys():
-                    family_to_key[familynr] = gene
-                    key = gene
-                    GCFs[key] = []
-                else:
-                    key = family_to_key[familynr]
-                GCFs[key].append(gene)
+                gene = gene_lists[1]
+                familynr = gene_lists[5]
+                if familynr not in GCFs:
+                    GCFs[familynr] = []
+                GCFs[familynr].append(gene)
     return (GCFs)
+
+def assign_gcf_representatives(GCFs, db_path):
+    """Query a bigscape database for family centers
+    ----------
+    GCFs
+        dictionary, {bigscape family name: bigscape family ID members}
+    db_path
+        string, filepath to bigscape database
+    returns
+    ----------
+    dictionary, {bigscape representative member ID: bigscape family ID members}
+    """
+    import sqlite3
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        # grab family id and gbk path of representative/center BGC
+        family_centers = cur.execute("SELECT family.id, gbk.path FROM family "
+        "INNER JOIN bgc_record ON bgc_record.id==family.center_id "
+        "INNER JOIN gbk ON gbk.id==bgc_record.gbk_id "
+        # take only the most recent run, if output dir is reused
+        "WHERE family.run_id==(SELECT MAX(run.id) FROM run)").fetchall()
+    
+    repr_GCFs = {}
+    for idx, gbk_path in family_centers:
+        gene = gbk_path.split("/")[-1].replace(".gbk", "")
+        family = f"FAM_{idx:05}"
+        # bigmap expects the representative to always be first in the list of members
+        GCFs[family].remove(gene)
+        # account for BGCs being representatives for multiple families
+        # due to --hybrids-off
+        if gene not in repr_GCFs:
+            repr_GCFs[gene] = [gene] + GCFs[family]
+        else:
+            repr_GCFs[gene] += [gc for gc in GCFs[family] if gc not in repr_GCFs[gene]]
+    return repr_GCFs
 
 def make_jsondict(new_GCFs, old_GCFs):
     """
@@ -1028,7 +1095,7 @@ def main():
     except:
         pass
 
-    print("___________Extracting fasta files__________")
+    print("Extracting fasta files".center(50, "_"))
     ################################
     # parsing data to fasta files
     ################################
@@ -1063,6 +1130,8 @@ def main():
 \nPlease check the tutorial (https://github.com/medema-group/BiG-MAP) for more information \
 concerning the input files of this module.")
 
+    print("Finding MASH representatives".center(50, "_"))
+
     make_sketch(args.outdir + os.sep, args.kmer, args.sketch)
 
     #checks the output of the mash sketch
@@ -1084,6 +1153,8 @@ concerning the input files of this module.")
 
     GCFs, distance_matrix = calculate_medoid(args.outdir + os.sep, args.threshold_GC)
 
+    print(f"Selected {len(GCFs)} representatives".center(50, "_"))
+
     if not args.metatranscriptomes:
         fastadict = makefastaheadersim(GCFs)
 
@@ -1104,21 +1175,7 @@ concerning the input files of this module.")
         # Run second redundancy filtering
         ###################################
         if args.bigscape_path:
-            parsed = {}
-            list_gbkfiles = list_representatives(fastadict)
-            print("________Preparing BiG-SCAPE input__________")
-            for files in args.indir:
-                for gbk_file in retrieveclusterfiles(files, args.outdir):
-                    movegbk(args.outdir, gbk_file, list_gbkfiles)
-
-            print("__________Running BiG-SCAPE________________")
-            run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
-
-            for tsv_file in retrieve_bigscapefiles(args.outdir):
-                parsed.update(parse_bigscape_result(tsv_file))
-
-            dict_json = make_jsondict(parsed, fastadict)
-            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+            dict_json = run_bigscape_workflow(args, fastadict)
 
         #############################
         # Pickling
@@ -1205,20 +1262,7 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         # Run second redundancy filtering
         ###################################
         if args.bigscape_path:
-            parsed = {}
-            list_gbkfiles = list_representatives(fastadict_ALL)
-            print("________Preparing BiG-SCAPE input__________")
-            for files in args.indir:
-                for gbk_file in retrieveclusterfiles(files, args.outdir):
-                    movegbk(args.outdir, gbk_file, list_gbkfiles)
-            print("__________Running BiG-SCAPE________________")
-            run_bigscape(args.bigscape_path, args.pfam, args.outdir, args.threads, args.cut_off)
-
-            for tsv_file in retrieve_bigscapefiles(args.outdir):
-                parsed.update(parse_bigscape_result(tsv_file))
-
-            dict_json = make_jsondict(parsed, fastadict_ALL)
-            writejson(dict_json, args.outdir, "BiG-MAP.GCF")
+            dict_json = run_bigscape_workflow(args, fastadict_ALL)
 
         #############################
         # Pickling
@@ -1235,6 +1279,8 @@ For example: s1....region001.gbk is not allowed, s1..region001.gbk is accepted")
         purge(args.outdir, ".txt")
         purge(args.outdir, ".faa")
         purge(args.outdir, "log.file")
+
+    print("All tasks finished".center(50, "_"))
 
 if __name__ == "__main__":
     main()
