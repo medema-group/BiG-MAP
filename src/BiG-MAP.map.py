@@ -1086,7 +1086,7 @@ Please provide matching file names.")
             else:
                 core_TPM = familycorrect(core_TPM, family)
                 core_RPKM = familycorrect(core_RPKM, family)
-                core_RPKM_avg = familycorrect(core_RPKM_avg, BGCF)
+                core_RPKM_avg = familycorrect(core_RPKM_avg, family)
                 core_raw = familycorrect(core_raw, family)
                 core_coverage = familycorrect(core_coverage, family)
 
