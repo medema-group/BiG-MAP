@@ -151,7 +151,7 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, ancient, th
     """
     stem = Path(mate1).stem
     sample = '.f'.join(ntpath.basename(mate1).split(".f")[:-1])
-    sample = sample if mate1 == mate2 else sample.split("_")[0]
+    sample = sample if mate1 == mate2 else sample.rpartition("_")[0].removesuffix("_pass")
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
@@ -967,7 +967,9 @@ def main():
                 file_names.append(line.split("\t")[0])
         if args.fastq1:
             for fastq_file in args.fastq1:
-                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1]).split("_")[0]
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1])
+                # remove fwd/rev number, remove _pass introduced by fast(er)q-dump
+                sample = sample.rpartition("_")[0].removesuffix("_pass")
                 fastq_file_names.append(sample)
         elif args.U_fastq:
             for fastq_file in args.U_fastq:
@@ -1047,7 +1049,6 @@ Please provide matching file names.")
         # saving results in one dictionary
         ##############################
         sample = '.b'.join(ntpath.basename(b).split(".b")[:-1])
-        sample = sample if args.U_fastq else sample.split("_")[0]
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
