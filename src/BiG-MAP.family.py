@@ -189,7 +189,8 @@ def parsegbkcluster(infile, nflank):
                 # Parsing the relative core locations
                 if "gene_kind" in feature.qualifiers.keys():
                     kind = feature.qualifiers['gene_kind'][0]
-                    if kind == "biosynthetic":
+                    # biosynthetic for anti/gutSMASH, catabolic for rhizoSMASH
+                    if kind == "biosynthetic" or kind == 'catabolic':
                         core_index.append(feature_count)
             feature_count += 1
 
