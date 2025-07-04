@@ -15,3 +15,6 @@ dependencies:
   - bedtools==2.31.1
   - biom-format==2.1.16
   - sra-tools==3.2.0
+  - cxx-compiler==1.9.0
+  - pip:
+    - bam-filter
