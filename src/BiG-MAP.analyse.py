@@ -1110,7 +1110,7 @@ def main():
                 make_explore(gc_sorted, sign_cov, metadata, args.metagroup, \
                 sample_type, args.outdir)
         if not args.compare:
-            os.remove(os.path.join(args.outdir + "BiG-MAP.table.txt"))
+            os.remove(os.path.join(args.outdir, "BiG-MAP.table.txt"))
         movetodir(args.outdir + os.sep, "tsv-results", ".tsv")
 
     if args.compare and args.groups:
