@@ -169,6 +169,8 @@ SRR5947841	M2027C5_MGX	METAGENOMIC	CD
 note the '#' to denote the header row!!!
 #+END_EXAMPLE
 
+When analyzing ancient (meta)genome data, use the /-an/ flag. Runs with bowtie the following parameters: ~--score-min "L,0,-0.1" -D 15 -R 2 -N 1 -L 22 -i S,1,1.15 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1"~. Additionally, employs [[https://github.com/genomewalker/bam-filter][filterBAM]] to reassign and filter mapped reads.
+
 ** 4) BiG-MAP.analyse.py
 This module performs a statistical analysis on the metagenomic/metatranscriptomic samples. First, the script normalizes and filters the data. Whereafter, the best covered gene clusters can be observed using the /--explore/ flag. Next, the Kruskal Wallis and fitZIG model will be used to compute differentially abundant/expressed gene clusters and Benjamini-Hochberg FDR compensates for multiple hypothesis testing. The output of the script are several heatmaps in pdf format.
 

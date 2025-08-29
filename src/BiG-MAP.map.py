@@ -76,6 +76,8 @@ Options:
           END-TO-END mode: very-fast, fast, sensitive, very-sensitive
           LOCAL mode: very-fast-local, fast-local, sensitive-local, 
           very-sensitive-local. Default = fast
+    -an   Use bowtie settings and filterBAM filtering for ancient (meta)genome analysis,
+          only compatible with single unpaired reads. Overwrites -s.
     -a    Ouput read average values across GCFs instead of summed counts:
           True/False. Default = False.
     -th   Number of used threads in the bowtie2 mapping step. Default = 6
@@ -95,6 +97,7 @@ ______________________________________________________________________
                          type=str, required = False, default=False)
     parser.add_argument( "-s", "--bowtie2_setting", help=argparse.SUPPRESS,
                          type=str, required = False, default="fast")
+    parser.add_argument("-an", "--ancient", required=False, help=argparse.SUPPRESS, action="store_true")
     parser.add_argument( "-th", "--threads", help=argparse.SUPPRESS,
                          type=int, required = False, default=6)
     return(parser, parser.parse_args())
@@ -125,7 +128,7 @@ def bowtie2_index(reference, outdir):
         # Proper error here, also exit code
     return (index_name)
 
-def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
+def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, ancient, threads):
     """Maps the .fq file to the reference (fasta)
     parameters
     ----------
@@ -148,10 +151,12 @@ def bowtie2_map(outdir, mate1, mate2, index, fasta, bowtie2_setting, threads):
     """
     stem = Path(mate1).stem
     sample = '.f'.join(ntpath.basename(mate1).split(".f")[:-1])
-    sample = sample if mate1 == mate2 else sample.split("_")[0]
+    sample = sample if mate1 == mate2 else sample.rpartition("_")[0].removesuffix("_pass")
     samfile = os.path.join(outdir, sample + ".sam")
     # In the case of unpaired, m1 and m2 are identical. Thus the following works:
     sample_command = f"-U {mate1}" if mate1 == mate2 else f"-1 {mate1} -2 {mate2}"
+    if ancient:
+        bowtie2_setting = 'score-min "L,0,-0.1" -D 15 -R 2 -N 1 -L 22 -i S,1,1.15 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1"'
     if fasta == "True":
         cmd_bowtie2_map = f"bowtie2 --{bowtie2_setting} --no-unal --threads {threads} -x {index} {sample_command} -S {samfile} -f"
     else:
@@ -275,14 +280,68 @@ def sortbam(bam, outdir):
         print('Unable to sort BAM file')
     return (sortedbam)
 
-def indexbam(sortedbam, outdir):
+def filterbam(bam, outdir):
+    """Run filterBAM for ancient (meta)genome analysis
+    parameters
+    ----------
+    bam
+        string, the name of the sorted bam file
+    outdir
+        string, the path of the output directory
+    returns
+    ----------
+    str, name of the filtered bam file
+    """
+    stem = Path(bam).stem
+    rebam = os.path.join(outdir, stem + ".reassigned.bam")
+    filtbam = os.path.join(outdir, stem + ".filtered.bam")
+    stats = os.path.join(outdir, stem + '.stats.csv')
+    filtstats = os.path.join(outdir, stem + '.stats-filtered.csv')
+    try:
+        cmd_reassign = f"filterBAM reassign --bam {bam} --out-bam {rebam}"
+        cmd_filter = f"filterBAM filter --bam {rebam} --bam-filtered {filtbam}\
+            --stats {stats} --stats-filtered {filtstats}"
+        if not os.path.exists(rebam):
+            subprocess.check_output(cmd_reassign, shell=True)
+        if not os.path.exists(filtbam):
+            subprocess.check_output(cmd_filter, shell=True)
+    except subprocess.CalledProcessError:
+        print("Unable to run filterBAM")
+    return filtbam
+
+def add_missing_bam_headers(filtbam, sortb):
+    """Adds in missing headers for GCs that were filtered out by filterBAM
+    parameters
+    ----------
+    filtbam
+        filterBAM processed bam file
+    sortb
+        original unfiltered sorted bam file
+    returns
+    ----------
+    none
+    """
+    tempfile = filtbam + ".tmp.sam"
+    try:
+        # add original headers
+        cmd_header = f"samtools view -H {sortb} > {tempfile}"
+        # append filtered mappings
+        cmd_mapping = f"samtools view --no-header {filtbam} >> {tempfile}"
+        # convert to bam format
+        cmd_bam = f"samtools view -b {tempfile} > {filtbam}"
+        subprocess.check_output(cmd_header, shell=True)
+        subprocess.check_output(cmd_mapping, shell=True)
+        subprocess.check_output(cmd_bam, shell=True)
+        os.remove(tempfile)
+    except:
+        print("Unable to reheader filtered BAM file")
+
+def indexbam(sortedbam):
     """Builds a bam index
     parameters
     ----------
     sortedbam
         string, the name of the sorted bam file
-    outdir
-        string, the path of the output directory
     returns
     ----------
     none
@@ -915,7 +974,9 @@ def main():
                 file_names.append(line.split("\t")[0])
         if args.fastq1:
             for fastq_file in args.fastq1:
-                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1]).split("_")[0]
+                sample = '.f'.join(ntpath.basename(fastq_file).split(".f")[:-1])
+                # remove fwd/rev number, remove _pass introduced by fast(er)q-dump
+                sample = sample.rpartition("_")[0].removesuffix("_pass")
                 fastq_file_names.append(sample)
         elif args.U_fastq:
             for fastq_file in args.U_fastq:
@@ -947,10 +1008,20 @@ Please provide matching file names.")
     ##############################
     print('Mapping reads using bowtie')
     for m1, m2 in fastq_files:
-        s = bowtie2_map(args.outdir + os.sep, m1, m2, i, args.fasta, args.bowtie2_setting, args.threads)
+        s = bowtie2_map(args.outdir + os.sep, m1, m2, i, args.fasta, args.bowtie2_setting, args.ancient, args.threads)
         b = samtobam(s, args.outdir + os.sep) 
         sortb = sortbam(b, args.outdir + os.sep)
-        indexbam(sortb, args.outdir + os.sep)
+
+        if args.ancient:
+            old_sortb = sortb
+            sortb = filterbam(old_sortb, args.outdir + os.sep)
+            # filterBAM might filter out some reads+references, 
+            # for downstream we readd their headers based on the non-filtered BAM file
+            add_missing_bam_headers(sortb, old_sortb)
+            purge(args.outdir, ".reassigned.bam")
+            purge(args.outdir, ".bam.csi")
+        
+        indexbam(sortb)
         countsfile = countbam(sortb, args.outdir + os.sep)
         if not BGCF == "":
             countsfile = correct_counts(countsfile, BGCF)
@@ -985,7 +1056,6 @@ Please provide matching file names.")
         # saving results in one dictionary
         ##############################
         sample = '.b'.join(ntpath.basename(b).split(".b")[:-1])
-        sample = sample if args.U_fastq else sample.split("_")[0]
         results[f"{sample}.TPM"] = [TPM[k] for k in RPKM.keys()]
         results[f"{sample}.RPKM"] = [RPKM[k] for k in RPKM.keys()]
         results[f"{sample}.RAW"] = [raw[k] for k in RPKM.keys()]
@@ -999,7 +1069,7 @@ Please provide matching file names.")
         ##############################
         if bed_file:
             sortb = extractcorefrombam(sortb, args.outdir + os.sep, bed_file)
-            indexbam(sortb, args.outdir + os.sep)
+            indexbam(sortb)
             countsfile = countbam(sortb, args.outdir + os.sep)
             if not BGCF == "":
                 countsfile = correct_counts(countsfile, BGCF)
@@ -1024,7 +1094,7 @@ Please provide matching file names.")
             else:
                 core_TPM = familycorrect(core_TPM, family)
                 core_RPKM = familycorrect(core_RPKM, family)
-                core_RPKM_avg = familycorrect(core_RPKM_avg, BGCF)
+                core_RPKM_avg = familycorrect(core_RPKM_avg, family)
                 core_raw = familycorrect(core_raw, family)
                 core_coverage = familycorrect(core_coverage, family)
 
