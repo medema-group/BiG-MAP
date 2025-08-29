@@ -295,10 +295,12 @@ def filterbam(bam, outdir):
     stem = Path(bam).stem
     rebam = os.path.join(outdir, stem + ".reassigned.bam")
     filtbam = os.path.join(outdir, stem + ".filtered.bam")
+    stats = os.path.join(outdir, stem + '.stats.csv')
+    filtstats = os.path.join(outdir, stem + '.stats-filtered.csv')
     try:
         cmd_reassign = f"filterBAM reassign --bam {bam} --out-bam {rebam}"
         cmd_filter = f"filterBAM filter --bam {rebam} --bam-filtered {filtbam}\
-            --stats {os.path.join(outdir, 'tmp.csv')} --stats-filtered {os.path.join(outdir, 'tmp-filt.csv')}"
+            --stats {stats} --stats-filtered {filtstats}"
         if not os.path.exists(rebam):
             subprocess.check_output(cmd_reassign, shell=True)
         if not os.path.exists(filtbam):
@@ -319,12 +321,17 @@ def add_missing_bam_headers(filtbam, sortb):
     ----------
     none
     """
-    tempfile = filtbam + ".tmp"
+    tempfile = filtbam + ".tmp.sam"
     try:
-        cmd_view = f"samtools view -b {filtbam} > {tempfile}"
-        cmd_reheader = f"samtools reheader {sortb} {tempfile} > {filtbam}"
-        subprocess.check_output(cmd_view, shell=True)
-        subprocess.check_output(cmd_reheader, shell=True)
+        # add original headers
+        cmd_header = f"samtools view -H {sortb} > {tempfile}"
+        # append filtered mappings
+        cmd_mapping = f"samtools view --no-header {filtbam} >> {tempfile}"
+        # convert to bam format
+        cmd_bam = f"samtools view -b {tempfile} > {filtbam}"
+        subprocess.check_output(cmd_header, shell=True)
+        subprocess.check_output(cmd_mapping, shell=True)
+        subprocess.check_output(cmd_bam, shell=True)
         os.remove(tempfile)
     except:
         print("Unable to reheader filtered BAM file")
