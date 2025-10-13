@@ -310,15 +310,20 @@ def make_sketch(outdir, kmer, sketch):
     returns
     ----------
     """
+    msh_in = os.path.join(outdir, "mash_input_files.txt")
+    with open(msh_in, "w") as inf:
+        for filename in glob(os.path.join(outdir, 'GC_PROT*')):
+            inf.write(filename + "\n")
+
     outlogfile = os.path.join(outdir, 'log.file')
     with open(outlogfile, "wb") as log_file:
         try:
             outfile = os.path.join(outdir, 'mash_sketch')
-            inp = os.path.join(outdir, 'GC_PROT*')
-            cmd_mash = f"mash sketch -o {outfile} -k {kmer} -p 1 -s {sketch} -a {inp}"
+            cmd_mash = f"mash sketch -o {outfile} -k {kmer} -p 1 -s {sketch} -a -l {msh_in}"
             p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
             stdout, stderr = p.communicate()
             log_file.write(stderr)
+            os.remove(msh_in)
 
         except(subprocess.CalledProcessError):
             # Raise error here for error table
