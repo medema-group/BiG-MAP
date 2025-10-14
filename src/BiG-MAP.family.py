@@ -180,7 +180,9 @@ def parsegbkcluster(infile, nflank):
             if "region" in feature.type:
                 if "product" in feature.qualifiers:
                     for product in feature.qualifiers["product"]:
-                        GCs.append(product)
+                        # in the case of very long product names, a space is introduced
+                        # e.g. for putative_2-oxoglutarate_ferredoxin_oxidoreductase
+                        GCs.append(product.replace(" ", ""))
             # Parsing the protein sequence
             if feature.type == "CDS":
                 CDS_index.append(feature_count)  # remembering every CDS gene index
@@ -310,15 +312,20 @@ def make_sketch(outdir, kmer, sketch):
     returns
     ----------
     """
+    msh_in = os.path.join(outdir, "mash_input_files.txt")
+    with open(msh_in, "w") as inf:
+        for filename in glob(os.path.join(outdir, 'GC_PROT*')):
+            inf.write(filename + "\n")
+
     outlogfile = os.path.join(outdir, 'log.file')
     with open(outlogfile, "wb") as log_file:
         try:
             outfile = os.path.join(outdir, 'mash_sketch')
-            inp = os.path.join(outdir, 'GC_PROT*')
-            cmd_mash = f"mash sketch -o {outfile} -k {kmer} -p 1 -s {sketch} -a {inp}"
+            cmd_mash = f"mash sketch -o {outfile} -k {kmer} -p 1 -s {sketch} -a -l {msh_in}"
             p = Popen(cmd_mash, shell=True, stdout=PIPE, stderr=PIPE)
             stdout, stderr = p.communicate()
             log_file.write(stderr)
+            os.remove(msh_in)
 
         except(subprocess.CalledProcessError):
             # Raise error here for error table
