@@ -180,7 +180,9 @@ def parsegbkcluster(infile, nflank):
             if "region" in feature.type:
                 if "product" in feature.qualifiers:
                     for product in feature.qualifiers["product"]:
-                        GCs.append(product)
+                        # in the case of very long product names, a space is introduced
+                        # e.g. for putative_2-oxoglutarate_ferredoxin_oxidoreductase
+                        GCs.append(product.replace(" ", ""))
             # Parsing the protein sequence
             if feature.type == "CDS":
                 CDS_index.append(feature_count)  # remembering every CDS gene index
