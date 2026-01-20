@@ -278,8 +278,6 @@ def norm_log2_data(df):
     ----------
     norm_df = dataframe with normalized and log2 converted RPKM values
     """
-    norm_df = pd.DataFrame()
-
     df_adj = df.replace(0, np.nan)
     quantile_dict = (df_adj.quantile(axis=0)).to_dict() # calculate the quantile
     # determine the numeric values in the dataframe
@@ -287,10 +285,11 @@ def norm_log2_data(df):
     df_adj[numeric_cols] -= np.finfo(float).eps # substract the machine epsilon
     # calculate the normalization factor by taking the sum of the values below the quantile \
     # normalize the data by dividing the counts by the normalization factor
+    cols = []
     for sample in quantile_dict.keys():
         normfac = df_adj[sample][df_adj[sample] <= quantile_dict[sample]].sum()
-        norm_df = norm_df.append(df_adj[sample]/(normfac/1000))
-    norm_df = norm_df.T
+        cols.append(df_adj[sample] / (normfac/1000))
+    norm_df = pd.concat(cols, axis=1)
     norm_df[numeric_cols] += 1 # add 1 as correction for log2 calc
     norm_df = (np.log2(norm_df)).replace(np.nan, 0.0) # calculate log2
     return norm_df
@@ -410,7 +409,7 @@ def make_hg_df(function_names, sign_hg, id_list, df, groups="", metadata=""):
     """
     if groups != "":
         row = pd.Series(metadata, name="Metadata")
-        df = df.append(row).sort_values(by=["Metadata"], axis=1)
+        df = pd.concat([df, row.to_frame().T]).sort_values(by=["Metadata"], axis=1)
         df = df.replace(0, float(0.0)).T
         df = df.loc[df["Metadata"].isin(groups)].T
         df = df.drop(["Metadata"], axis=0)
@@ -448,7 +447,7 @@ def sort_coverage(gc_df, cov, metadata):
     gc_df = (gc_df.sort_values(by=[0], ascending=False)).drop([0], axis=1)
     # add metadata and sort on the groups
     row = pd.Series(metadata, name="Metadata")
-    gc_df = gc_df.append(row).sort_values(by=["Metadata"], axis=1)
+    gc_df = pd.concat([gc_df, row.to_frame().T]).sort_values(by=["Metadata"], axis=1)
     meta_types = list(gc_df.loc["Metadata", :].values)
     gc_df = gc_df.drop(["Metadata"], axis=0)
     gc_df = gc_df.replace(0, float(0.0))
@@ -612,7 +611,7 @@ def kruskal_wallis(norm_df, metadata, groups):
     group1 = groups[0]
     group2 = groups[1]
     row = pd.Series(metadata, name="Metadata")
-    df = norm_df.append(row).sort_values(by=["Metadata"], axis=1)
+    df = pd.concat([norm_df, row.to_frame().T]).sort_values(by=["Metadata"], axis=1)
     df = df.replace(0, float(0.0)).T
     df = df.loc[df["Metadata"].isin(groups)]
     counts = df["Metadata"].value_counts()
@@ -679,7 +678,7 @@ def parse_results(results, all_counts, groups, metadata, alpha, res_type):
         print("There are no significant gene clusters found. Try increasing the alpha (-ak flag)")
     else:
         row = pd.Series(metadata, name="Metadata")
-        counts = all_counts.append(row).sort_values(by=["Metadata"], axis=1)
+        counts = pd.concat([all_counts, row.to_frame().T]).sort_values(by=["Metadata"], axis=1)
         counts = counts.replace(0, float(0.0)).T
         counts = counts.loc[counts["Metadata"].isin(groups)].T
         meta_types = list(counts.loc["Metadata", :].values)
@@ -703,7 +702,7 @@ def order_coverage(metadata, cov, groups):
         if metadata[sample_id] in groups:
             group_meta[sample_id] = metadata[sample_id]
     row = pd.Series(group_meta, name="Metadata")
-    cov = cov.append(row).sort_values(by=["Metadata"], axis=1).T
+    cov = pd.concat([cov, row.to_frame().T]).sort_values(by=["Metadata"], axis=1).T
     cov = cov.replace(0, float(0.0))
     cov = cov.groupby(["Metadata"]).mean().T
     return cov, group_meta
@@ -723,7 +722,7 @@ def get_log2fold(gc_df, groups, group_meta):
     group1 = groups[0]
     group2 = groups[1]
     row = pd.Series(group_meta, name="Metadata")
-    sign_fit_adj = gc_df.append(row).sort_values(by=["Metadata"], axis=1).T
+    sign_fit_adj = pd.concat([gc_df, row.to_frame().T]).sort_values(by=["Metadata"], axis=1).T
     sign_fit_adj = sign_fit_adj.replace(0, float(0.0))
     sign_fit_adj = sign_fit_adj.groupby(["Metadata"]).mean().T
     sign_fit_adj["log2_fold"] = sign_fit_adj[group1] - sign_fit_adj[group2]
