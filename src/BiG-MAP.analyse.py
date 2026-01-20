@@ -34,6 +34,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 from rpy2.robjects.packages import importr, STAP
 import rpy2.robjects.packages as rpackages
 
+# reduce matplotlib warnings
+matplotlib.set_loglevel("error")
+
 ######################################################################
 # Argparse functionality
 ######################################################################
