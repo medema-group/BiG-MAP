@@ -1,4 +1,4 @@
-name: BiG-MAP
+name: bigmap
 channels:
   - conda-forge
   - bioconda
