@@ -35,7 +35,7 @@ rule family:
     output:
         config["family_output"] if config["family_output"] != "" else "output/family/BiG-MAP.pickle"
     threads:
-        max(1, workflow.cores - 1) --ideally leave one core to start download asap
+        max(1, workflow.cores - 1) #ideally leave one core to start download asap
     shell:
         "bigmap-family -D {input.smash_data} -O output/family/ -p {threads} {params.command_family}"
 
