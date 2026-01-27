@@ -31,18 +31,20 @@ Install BiG-MAP dependencies using conda. Conda can be installed from
 ~$ conda activate bigmap
 #+END_EXAMPLE
 
+Optionally, if working with unpaired ancient read data, additionally install [[https://github.com/genomewalker/bam-filter][filterBAM]]:
+#+BEGIN_EXAMPLE
+~$ pip install bam-filter
+#+END_EXAMPLE
+
 Alternatively, to install from source, first clone the BiG-MAP repository from github:
 
 #+BEGIN_EXAMPLE
 ~$ git clone https://github.com/medema-group/BiG-MAP.git
-#+END_EXAMPLE
-
-Then install all the dependencies from the environment.yml file with:
-#+BEGIN_EXAMPLE
 ~$ conda env create -f environment.yml
 ~$ conda activate bigmap
 ~$ pip install .
 #+END_EXAMPLE
+
 This step is optional but to make use of the second redundancy filtering step in the bigmap-family module, install BiG-SCAPE using: 
 #+BEGIN_EXAMPLE
 ~$ conda install bigscape
@@ -196,29 +198,22 @@ tsv-results -> directory containing tsv files with the raw data
 This Snakemake workflow allows for a more automated and streamlined running of the separated BiG-MAP modules. For more information on how to install and run the Snakemake version of BiG-MAP, check the instructions below.
 
 * Installation and run overview
-Install BiG-MAP dependencies using conda. Conda can be installed from
-[[https://docs.conda.io/en/latest/miniconda.html][miniconda_link]]. First pull the BiG-MAP repository from github:
+Install Snakemake (tested for version 9.15.0) to your bigmap environment:
+#+BEGIN_EXAMPLE
+~$ conda activate bigmap
+~$ conda install -c conda-forge -c bioconda snakemake
+#+END_EXAMPLE
 
+Next, clone/copy/download the contents of the BiG-MAP_snakemake folder to your preferred output location
 #+BEGIN_EXAMPLE
 ~$ git clone https://github.com/medema-group/BiG-MAP.git
-#+END_EXAMPLE
-
-Install Snakemake with the following command:
-#+BEGIN_EXAMPLE
-~$ conda create -n snakemake -c conda-forge -c bioconda snakemake=6.0.2
-~$ conda activate snakemake
-#+END_EXAMPLE
-
-Next, copy the BiG-MAP_snakemake folder to the preferred output location
-#+BEGIN_EXAMPLE
 ~$ cp -r BiG-MAP/BiG-MAP_snakemake/ /path/to/output/location/
 #+END_EXAMPLE
 
-Navigate to the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In this file, the locations of files and folders should be included based on the wanted BiG-MAP run settings. After adjusting the config file, use the following command to start the BiG-MAP run:
+Navigate to your copy of the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In this file, the locations of files and folders should be included based on the wanted BiG-MAP run settings. After adjusting the config file, use the following command to start the BiG-MAP run:
 #+BEGIN_EXAMPLE
-~$ snakemake --use-conda --cores 10
+~$ snakemake --cores 10
 #+END_EXAMPLE
-*NOTE*: It's recommended to use a conda-prefix location to a folder in which the BiG-MAP conda environments can be installed (--conda-prefix /path/to/snakemake/conda/envs/). Additionally, the number of cores used by BiG-MAP can be adjusted with the --cores flag.
 
 * Requirements
 ** Input data:
@@ -235,7 +230,7 @@ Navigate to the BiG-MAP_snakemake folder and adjust the *config.yaml* file. In t
 - Samtools
 - Bedtools
 - biom
-- BiG-SCAPE=2.0.0
+- BiG-SCAPE>=2.0.0
 
 ** Packages:
 *** Python
