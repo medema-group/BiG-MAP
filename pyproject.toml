@@ -1,6 +1,6 @@
 [project]
 name = "bigmap"
-version = "1.1.0"
+version = "1.1.1"
 description = "The Biosynthetic Gene cluster Meta'omics Abundance Profiler"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
