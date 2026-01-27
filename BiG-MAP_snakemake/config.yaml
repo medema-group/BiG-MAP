@@ -5,9 +5,6 @@
 # If you do not want to run the analysis module, leave the input  #
 # variables blank: data_type: "". Else, use: "/path/to/location/" #
 
-# Provide the path to the BiG-MAP installation:
-BiG-MAP_loc:
-    "/path/to/BiG-MAP/" 
 
 #### BiG-MAP.download ####
 # Provide the path to the accession file
@@ -30,9 +27,9 @@ loc_smash:
     "/path/to/antismash/"
 ## Leave loc_bigscape and loc_pfam blank if you don't want to run BiG-MAP including BiG-SCAPE
 loc_bigscape:
-    "/path/to/BiG-SCAPE/"
+    "bigscape" # "bigscape" if conda installed, otherwise /path/to/bigscape.py
 loc_pfam:
-    "/path/to/pfam_files_location/"
+    "/path/to/Pfam-A.hmm"
 ## If the reads to analyze are from metatranscriptomes, write "yes" below. 
 ## For metagenome analyses, leave this option blank
 metatranscriptomes:

@@ -35,6 +35,7 @@ from subprocess import Popen, PIPE
 import shutil
 from glob import glob
 import ntpath
+import importlib_resources
 
 def get_arguments():
     """Parsing the arguments"""
@@ -74,7 +75,8 @@ Options:
          the Mash instructions when changing this parameter. Default = 5000
     -k   Specify the k-mer size used by Mash. It is recommended to read the
          Mash instructions when changing this parameter. Default = 16
-    -b   Name of the path to bigscape.py. Default = False
+    -b   Name of the path to 'bigscape.py' or 'bigscape' if installed though
+         conda. Default = False
     -pf  Path to pfam file, e.g. pfam/Pfam-A.hmm. Default = False
     -p   Number of used parallel threads in the BiG-SCAPE
          filtering step. Default = 6
@@ -82,7 +84,6 @@ Options:
         include this flag to start house-keeping genes analysis
 ______________________________________________________________________
 ''')
-
     parser.add_argument("-D", "--indir", help=argparse.SUPPRESS, nargs="+", required=True)
     parser.add_argument("-O", "--outdir", help=argparse.SUPPRESS, required=True)
     parser.add_argument("-tg", "--threshold_GC", help=argparse.SUPPRESS,
@@ -916,11 +917,13 @@ def run_bigscape(path_to_bigscape, pfamfiles, outdir, cores, cut_off):
     output_dir = os.path.join(outdir, "bigscape_output")
     gbk_files = os.path.join(outdir, "gbk_files")
     if "bigscape.py" in path_to_bigscape:
-        bigscape_exec = path_to_bigscape
+        bigscape_exec = f"python3 {path_to_bigscape}"
+    elif path_to_bigscape == "bigscape": # conda installed
+        bigscape_exec = "bigscape"
     else:
-        bigscape_exec = os.path.join(path_to_bigscape, "bigscape.py")
+        bigscape_exec = f"python3 {os.path.join(path_to_bigscape, 'bigscape.py')}"
     try:
-        cmd_bigscape = f"python3 {bigscape_exec} cluster -i {gbk_files} -o {output_dir} \
+        cmd_bigscape = f"{bigscape_exec} cluster -i {gbk_files} -o {output_dir} \
         -c {cores} --pfam-path {pfamfiles} --gcf-cutoffs {cut_off} --hybrids-off \
         --include-singletons --quiet --force-gbk"
         subprocess.check_output(cmd_bigscape, shell=True)
@@ -1207,7 +1210,12 @@ concerning the input files of this module.")
         ################################
         # housekeeping genes: Obtainging
         ################################
-        hmmfile = Path(f"{sys.path[0]}") / "pfamdomains/combined.hmm"
+        try:
+            # if pip installed
+            hmmfile = importlib_resources.files("bigmap") / "pfamdomains/combined.hmm"
+        except ModuleNotFoundError:
+            # no pip installation, called from python file
+            hmmfile = importlib_resources.files("pfamdomains") / "combined.hmm"
         processed = []
         HG_prot_files = []
         HG_DNA_files = []
