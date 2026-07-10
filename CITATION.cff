@@ -1,0 +1,63 @@
+cff-version: 1.2.0
+title: BiG-MAP
+type: software
+repository: https://github.com/medema-group/BiG-MAP
+identifiers:
+- type: other
+  value: big-map
+  description: bio.tools
+license: MIT
+keywords:
+- term: Metatranscriptomics
+  uri: http://edamontology.org/topic_3941
+- term: Microbial ecology
+  uri: http://edamontology.org/topic_3697
+- term: Metagenomics
+  uri: http://edamontology.org/topic_3174
+- term: Metabolomics
+  uri: http://edamontology.org/topic_3172
+- term: Endocrinology and metabolism
+  uri: http://edamontology.org/topic_3407
+abstract: The Biosynthetic Gene cluster Meta’omics abundance Profiler (BiG-MAP). A
+  command-line tool that it is able to profile the abundance and expression of a collection
+  of gene clusters across metagenomic and metatranscriptomic data from any kind of
+  biome, including human, plant, animal, marine, and soil microbiomes.
+message: If you use this software, please cite it and the Primary publications below.
+references:
+- doi: 10.1128/msystems.00937-21
+  title: 'BiG-MAP: an Automated Pipeline To Profile Metabolic Gene Cluster Abundance
+    and Expression in Microbiomes.'
+  authors:
+  - first_name: Victória
+    last_name: Pascal Andreu
+  - first_name: Hannah E
+    last_name: Augustijn
+  - first_name: Koen
+    last_name: van den Berg
+  - first_name: Justin J J
+    last_name: van der Hooft
+  - first_name: Michael A
+    last_name: Fischbach
+  - first_name: Marnix H
+    last_name: Medema
+  year: 2021
+  pub_type: article
+preferred-citation:
+  doi: 10.1128/msystems.00937-21
+  title: 'BiG-MAP: an Automated Pipeline To Profile Metabolic Gene Cluster Abundance
+    and Expression in Microbiomes.'
+  authors:
+  - first_name: Victória
+    last_name: Pascal Andreu
+  - first_name: Hannah E
+    last_name: Augustijn
+  - first_name: Koen
+    last_name: van den Berg
+  - first_name: Justin J J
+    last_name: van der Hooft
+  - first_name: Michael A
+    last_name: Fischbach
+  - first_name: Marnix H
+    last_name: Medema
+  year: 2021
+  pub_type: article
